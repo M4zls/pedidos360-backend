@@ -3,6 +3,12 @@ target/
 .mvn/
 HELP.md
 
+# SQLite (base local)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
 # IDEs
 .idea/
 *.iml

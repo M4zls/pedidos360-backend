@@ -5,7 +5,7 @@
 | Paquete                   | Qué es                                                                                   |
 | ------------------------- | -------------------------------------------------------------------------------------- |
 | `com.pedidos360.auth`     | Resource server: valida ID tokens de Microsoft (Azure AD, multi-tenant) y un JWT propio del login usuario/contraseña de ejemplo. |
-| `com.pedidos360.inventory`| Microservicio de inventario: catálogo de productos y movimientos de stock (JPA / PostgreSQL). |
+| `com.pedidos360.inventory`| Microservicio de inventario: catálogo de productos y movimientos de stock (JPA / SQLite). |
 
 Backend del proyecto Pedidos360 — repo aparte del frontend
 (`M4zls/pedidos360-frontend`). El `app.auth.microsoft.client-id` de acá y el
@@ -18,14 +18,15 @@ Backend del proyecto Pedidos360 — repo aparte del frontend
 ## Ejecutar
 
 ```bash
-docker compose up -d       # PostgreSQL en localhost:5432 (ver docker-compose.yml)
 mvn spring-boot:run        # http://localhost:8080
-mvn test                   # tests (usan H2 embebida, no necesitan Postgres)
+mvn test                   # tests (usan H2 en memoria)
 mvn clean package          # jar en target/
 ```
 
-Sin `docker compose`, apuntá a tu propia Postgres con las variables
-`DB_URL` / `DB_USERNAME` / `DB_PASSWORD`.
+**No necesita Docker ni base de datos aparte.** Usa **SQLite**: al arrancar crea
+el archivo `pedidos360.db` en esta carpeta (gitignoreado) y lo siembra con
+productos de ejemplo. Para empezar de cero, borrá ese archivo. Para usar otra
+base, pasá `DB_URL` (p.ej. `jdbc:postgresql://...`).
 
 ## Endpoints
 
@@ -68,9 +69,9 @@ Los controllers nunca tocan los repositorios: pasan por la capa de servicio.
 
 ## Configuración (`src/main/resources/application.yml`)
 
-- `spring.datasource.*` — Postgres (con defaults para `docker compose`).
-- `spring.jpa.hibernate.ddl-auto` — `update` para la demo; en serio, Flyway.
-- `data.sql` — productos de ejemplo (idempotente, `ON CONFLICT DO NOTHING`).
+- `spring.datasource.url` — `jdbc:sqlite:pedidos360.db` (override con `DB_URL`).
+- `spring.jpa.hibernate.ddl-auto` — `update`: Hibernate crea/ajusta las tablas.
+- `InventoryDataInitializer` — carga productos de ejemplo si la tabla está vacía.
 - `app.auth.microsoft.client-id` — debe coincidir con el front.
 - `app.auth.local.*` — usuario/contraseña y `jwt-secret` de demo (**no producción**).
 
