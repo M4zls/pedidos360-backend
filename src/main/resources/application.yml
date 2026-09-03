@@ -1,6 +1,30 @@
 server:
   port: 8080
 
+spring:
+  application:
+    name: pedidos360-backend
+  # --- Inventario: PostgreSQL ---
+  # Local: docker compose up -d  (ver docker-compose.yml) levanta Postgres en :5432.
+  # Prod: pasar DB_URL / DB_USERNAME / DB_PASSWORD como variables de entorno.
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pedidos360}
+    username: ${DB_USERNAME:pedidos360}
+    password: ${DB_PASSWORD:pedidos360}
+  jpa:
+    hibernate:
+      # 'update' alcanza para la demo. En serio: migraciones con Flyway.
+      ddl-auto: ${DB_DDL_AUTO:update}
+    open-in-view: false
+    # data.sql corre despues de que Hibernate crea las tablas.
+    defer-datasource-initialization: true
+    properties:
+      hibernate.format_sql: true
+  sql:
+    init:
+      # Carga data.sql (usa INSERT ... ON CONFLICT DO NOTHING, es idempotente).
+      mode: always
+
 app:
   auth:
     google:

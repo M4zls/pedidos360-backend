@@ -1,0 +1,24 @@
+# Postgres para desarrollo local del microservicio de inventario.
+#   docker compose up -d      -> levanta la base en localhost:5432
+#   docker compose down       -> la apaga (conserva los datos en el volumen)
+#   docker compose down -v    -> la apaga y BORRA los datos
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pedidos360-db
+    environment:
+      POSTGRES_DB: pedidos360
+      POSTGRES_USER: pedidos360
+      POSTGRES_PASSWORD: pedidos360
+    ports:
+      - "5432:5432"
+    volumes:
+      - pedidos360-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pedidos360 -d pedidos360"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pedidos360-db-data:

@@ -1,7 +1,6 @@
 package com.pedidos360.auth.security;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -9,8 +8,7 @@ import java.util.regex.Pattern;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jwt.JWTParser;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -67,7 +65,6 @@ public class MultiIssuerAuthenticationManagerResolver implements AuthenticationM
     private final String localJwtSecret;
     private final String localAudience;
     private final Map<String, AuthenticationManager> managersByIssuer = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public MultiIssuerAuthenticationManagerResolver(
             String googleClientId,
@@ -120,33 +117,18 @@ public class MultiIssuerAuthenticationManagerResolver implements AuthenticationM
         return new ProviderManager(new JwtAuthenticationProvider(jwtDecoder));
     }
 
-    /** Lee el claim "iss" del JWT sin verificar todavia su firma. */
+    /** Lee el claim "iss" del JWT (parseo sin verificar la firma). */
     private String extractIssuer(HttpServletRequest request) {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header == null || !header.startsWith("Bearer ")) {
             return null;
         }
-        String token = header.substring("Bearer ".length());
-        String[] parts = token.split("\\.");
-        if (parts.length < 2) {
-            return null;
-        }
         try {
-            byte[] payloadBytes = decodeBase64Url(parts[1]);
-            JsonNode payload = objectMapper.readTree(payloadBytes);
-            JsonNode iss = payload.get("iss");
-            return iss != null ? iss.asText() : null;
+            return JWTParser.parse(header.substring("Bearer ".length()))
+                    .getJWTClaimsSet()
+                    .getIssuer();
         } catch (Exception ex) {
             return null;
         }
-    }
-
-    private static byte[] decodeBase64Url(String value) {
-        int padding = (4 - value.length() % 4) % 4;
-        StringBuilder padded = new StringBuilder(value);
-        for (int i = 0; i < padding; i++) {
-            padded.append('=');
-        }
-        return Base64.getUrlDecoder().decode(padded.toString());
     }
 }
