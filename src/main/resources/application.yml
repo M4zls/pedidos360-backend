@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+app:
+  auth:
+    google:
+      # OAuth Client ID (tipo "Web application") de Google Cloud Console.
+      # Como obtenerlo: https://console.cloud.google.com -> APIs & Services
+      # -> Credentials -> Create Credentials -> OAuth client ID -> Web
+      # application -> Authorized JavaScript origins: http://localhost:4200
+      # Debe ser EXACTAMENTE el mismo valor que GOOGLE_CLIENT_ID en
+      # front/src/app/auth/google/google-auth.config.ts
+      client-id: <GOOGLE_CLIENT_ID>
+    microsoft:
+      # "Application (client) ID" del App Registration en Azure AD.
+      # El backend valida que el claim "aud" del ID token de Microsoft sea
+      # EXACTAMENTE este valor, asi que tiene que coincidir con
+      # MICROSOFT_CLIENT_ID en
+      # front/src/app/auth/microsoft/microsoft-auth.config.ts
+      #
+      # Valor tomado del repo de referencia CVm0/pedidos360-frontend. El
+      # backend acepta cualquier tenant (ver MICROSOFT_ISSUER_PATTERN), asi
+      # que solo hace falta el client-id. Cambialo por el tuyo cuando crees
+      # tu propio App Registration.
+      client-id: 89fde275-566d-498a-a663-bbed17a2a29d
+    local:
+      # Login de USUARIO/CONTRASEÑA de ejemplo (POST /api/auth/login),
+      # ademas de Google y Microsoft. Es solo para mostrar la opcion: un
+      # unico usuario fijo, sin base de datos ni hash de contraseñas. No
+      # usar tal cual en produccion.
+      username: demo
+      password: demo123
+      # Clave para firmar (HS256) los JWT que emite este backend. Minimo 32
+      # caracteres. Cambiala por una propia (y sacala de application.yml,
+      # p.ej. variable de entorno) antes de usar esto en serio.
+      jwt-secret: cambia-esta-clave-secreta-por-una-propia-de-al-menos-32-caracteres
+      audience: pedidos360-front

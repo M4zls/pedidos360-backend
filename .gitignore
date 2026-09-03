@@ -1,0 +1,19 @@
+# Maven / Spring Boot
+target/
+.mvn/
+HELP.md
+
+# IDEs
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# SO
+.DS_Store
+Thumbs.db
+
+# Entorno / secretos
+*.env
+*.env.local
