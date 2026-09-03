@@ -1,13 +1,13 @@
-package com.pedidos360.inventory.web;
+package com.pedidos360.inventory.controller;
 
 import java.net.URI;
 import java.util.List;
 
 import com.pedidos360.inventory.domain.Product;
 import com.pedidos360.inventory.service.ProductService;
-import com.pedidos360.inventory.web.dto.CreateProductRequest;
-import com.pedidos360.inventory.web.dto.ProductResponse;
-import com.pedidos360.inventory.web.dto.UpdateProductRequest;
+import com.pedidos360.inventory.controller.dto.CreateProductRequest;
+import com.pedidos360.inventory.controller.dto.ProductResponse;
+import com.pedidos360.inventory.controller.dto.UpdateProductRequest;
 
 import jakarta.validation.Valid;
 

@@ -1,4 +1,4 @@
-package com.pedidos360.inventory.web;
+package com.pedidos360.inventory.controller;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * Acotado al paquete web del inventario para no pisar el manejo de errores del
  * resource server de auth.
  */
-@RestControllerAdvice(basePackages = "com.pedidos360.inventory.web")
+@RestControllerAdvice(basePackages = "com.pedidos360.inventory.controller")
 public class InventoryExceptionHandler {
 
     @ExceptionHandler(ProductNotFoundException.class)

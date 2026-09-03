@@ -1,4 +1,4 @@
-package com.pedidos360.inventory.web.dto;
+package com.pedidos360.inventory.controller.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -1,11 +1,11 @@
-package com.pedidos360.inventory.web;
+package com.pedidos360.inventory.controller;
 
 import java.util.List;
 
 import com.pedidos360.inventory.domain.StockMovement;
 import com.pedidos360.inventory.service.InventoryService;
-import com.pedidos360.inventory.web.dto.StockMovementRequest;
-import com.pedidos360.inventory.web.dto.StockMovementResponse;
+import com.pedidos360.inventory.controller.dto.StockMovementRequest;
+import com.pedidos360.inventory.controller.dto.StockMovementResponse;
 
 import jakarta.validation.Valid;
 

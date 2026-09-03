@@ -56,16 +56,17 @@ recalcula el stock del producto en la misma transacción.
 ## Arquitectura del inventario (capa de repositorio)
 
 ```
-web/ (controllers + DTOs + ExceptionHandler)
+controller/ (ProductController, StockMovementController, DTOs, ExceptionHandler)
       │  usa
-service/ (ProductService, InventoryService — reglas de negocio, @Transactional)
+service/    (ProductService, InventoryService — reglas de negocio, @Transactional)
       │  usa
 repository/ (ProductRepository, StockMovementRepository — Spring Data JPA)
       │  mapea
-domain/ (Product, StockMovement, MovementType — entidades JPA)
+domain/     (Product, StockMovement, MovementType — entidades JPA)
 ```
 
 Los controllers nunca tocan los repositorios: pasan por la capa de servicio.
+Misma estructura que `com.pedidos360.auth` (`controller/` + `security/`).
 
 ## Configuración (`src/main/resources/application.yml`)
 
