@@ -1,0 +1,8 @@
+target/
+*.db
+*.db-journal
+.git/
+.idea/
+*.iml
+HELP.md
+README.md

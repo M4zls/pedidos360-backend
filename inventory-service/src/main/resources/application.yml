@@ -1,0 +1,39 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: pedidos360-inventory
+  # Base de datos PROPIA del servicio de inventario (no comparte con auth ni pedidos).
+  datasource:
+    url: ${DB_URL:jdbc:sqlite:pedidos360-inventory.db}
+  jpa:
+    hibernate:
+      ddl-auto: ${DB_DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate.dialect: org.hibernate.community.dialect.SQLiteDialect
+      hibernate.format_sql: true
+  sql:
+    init:
+      mode: never
+
+app:
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
+  # --- Roles por email (fallback cuando el token no trae el claim "roles") ---
+  # Debe coincidir con la config del servicio de auth.
+  roles:
+    admins:
+      - cam.carrascop@duocuc.cl
+    operadores:
+      - max.palma@duocuc.cl
+  auth:
+    microsoft:
+      # Mismo "Application (client) ID" que el servicio de auth y el front.
+      client-id: ${MICROSOFT_CLIENT_ID:89fde275-566d-498a-a663-bbed17a2a29d}
+    local:
+      # Misma clave y audience que el servicio de auth (para validar el JWT
+      # que emite su login usuario/contraseña).
+      jwt-secret: ${LOCAL_JWT_SECRET:cambia-esta-clave-secreta-por-una-propia-de-al-menos-32-caracteres}
+      audience: ${LOCAL_JWT_AUDIENCE:pedidos360-front}
