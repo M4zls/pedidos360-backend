@@ -25,19 +25,14 @@ inventory:
 app:
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
-  # --- Roles por email (fallback cuando el token no trae el claim "roles") ---
+  # --- Roles por email (resuelve el rol de los tokens de Microsoft) ---
   # Debe coincidir con la config del servicio de auth.
   roles:
     admins:
-      - cam.carrascop@duocuc.cl
+      - pedro.porro@proyecto3602.onmicrosoft.com
     operadores:
-      - max.palma@duocuc.cl
+      - juanfaure@proyecto3602.onmicrosoft.com
   auth:
     microsoft:
       # Mismo "Application (client) ID" que el servicio de auth y el front.
-      client-id: ${MICROSOFT_CLIENT_ID:89fde275-566d-498a-a663-bbed17a2a29d}
-    local:
-      # Misma clave y audience que el servicio de auth (para validar el JWT
-      # que emite su login usuario/contraseña).
-      jwt-secret: ${LOCAL_JWT_SECRET:cambia-esta-clave-secreta-por-una-propia-de-al-menos-32-caracteres}
-      audience: ${LOCAL_JWT_AUDIENCE:pedidos360-front}
+      client-id: ${MICROSOFT_CLIENT_ID:7b48efc0-534c-4b13-9e02-4c60a129f151}

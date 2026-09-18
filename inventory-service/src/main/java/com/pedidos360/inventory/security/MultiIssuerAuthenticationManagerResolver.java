@@ -1,12 +1,8 @@
 package com.pedidos360.inventory.security;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
-
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 import com.nimbusds.jwt.JWTParser;
 
@@ -20,7 +16,6 @@ import org.springframework.security.authentication.AuthenticationManagerResolver
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -29,34 +24,25 @@ import org.springframework.security.oauth2.server.resource.InvalidBearerTokenExc
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider;
 
 /**
- * Acepta como Bearer token un ID token de Microsoft (cualquier tenant) o un
- * JWT propio emitido por el login usuario/contraseña del servicio de auth
- * (HS256, misma clave compartida). Igual que en el servicio de auth, sin
- * Google.
+ * Resource server: unico proveedor de login es Microsoft (Entra External ID /
+ * CIAM). Igual que en el servicio de auth.
  */
 public class MultiIssuerAuthenticationManagerResolver
         implements AuthenticationManagerResolver<HttpServletRequest> {
 
+    // Tenant Entra External ID (CIAM): issuer bajo ciamlogin.com, no
+    // login.microsoftonline.com.
     private static final Pattern MICROSOFT_ISSUER_PATTERN =
-            Pattern.compile("^https://login\\.microsoftonline\\.com/[^/]+/v2\\.0$");
-
-    /** Issuer que usa el servicio de auth para el login usuario/contraseña. */
-    public static final String LOCAL_ISSUER = "https://pedidos360-auth.local";
+            Pattern.compile("^https://[^./]+\\.ciamlogin\\.com/[^/]+/v2\\.0$");
 
     private final String microsoftClientId;
-    private final String localJwtSecret;
-    private final String localAudience;
     private final Converter<Jwt, ? extends AbstractAuthenticationToken> authenticationConverter;
     private final Map<String, AuthenticationManager> managersByIssuer = new ConcurrentHashMap<>();
 
     public MultiIssuerAuthenticationManagerResolver(
             String microsoftClientId,
-            String localJwtSecret,
-            String localAudience,
             Converter<Jwt, ? extends AbstractAuthenticationToken> authenticationConverter) {
         this.microsoftClientId = microsoftClientId;
-        this.localJwtSecret = localJwtSecret;
-        this.localAudience = localAudience;
         this.authenticationConverter = authenticationConverter;
     }
 
@@ -70,23 +56,15 @@ public class MultiIssuerAuthenticationManagerResolver
     }
 
     private AuthenticationManager buildManagerForIssuer(String issuer) {
-        NimbusJwtDecoder jwtDecoder;
-        String expectedAudience;
-
-        if (MICROSOFT_ISSUER_PATTERN.matcher(issuer).matches()) {
-            expectedAudience = microsoftClientId;
-            jwtDecoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
-        } else if (LOCAL_ISSUER.equals(issuer)) {
-            expectedAudience = localAudience;
-            SecretKey key = new SecretKeySpec(localJwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            jwtDecoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-        } else {
+        if (!MICROSOFT_ISSUER_PATTERN.matcher(issuer).matches()) {
             throw new InvalidBearerTokenException("Issuer no confiable: " + issuer);
         }
 
+        NimbusJwtDecoder jwtDecoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
+
         OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
         OAuth2TokenValidator<Jwt> withAudience = new DelegatingOAuth2TokenValidator<>(
-                withIssuer, new AudienceValidator(expectedAudience));
+                withIssuer, new AudienceValidator(microsoftClientId));
         jwtDecoder.setJwtValidator(withAudience);
 
         JwtAuthenticationProvider provider = new JwtAuthenticationProvider(jwtDecoder);

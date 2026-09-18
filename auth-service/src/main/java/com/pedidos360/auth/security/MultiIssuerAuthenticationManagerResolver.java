@@ -1,12 +1,8 @@
 package com.pedidos360.auth.security;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
-
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 import com.nimbusds.jwt.JWTParser;
 
@@ -20,7 +16,6 @@ import org.springframework.security.authentication.AuthenticationManagerResolver
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -29,57 +24,32 @@ import org.springframework.security.oauth2.server.resource.InvalidBearerTokenExc
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider;
 
 /**
- * Permite que el mismo backend acepte, como Bearer token, un ID token de
- * Google, uno de Microsoft (cualquier tenant, incluidas cuentas personales)
- * O un JWT propio emitido por este mismo backend (login de usuario/
- * contraseña de ejemplo, ver LocalAuthController), sin tener que elegir un
- * unico "issuer-uri" fijo en application.yml.
- *
- * Como funciona:
- * 1. Antes de validar la firma, mira el claim "iss" del token (sin verificar
- *    todavia) para decidir de que proveedor viene.
- * 2. Segun el issuer, arma (y cachea) un JwtDecoder que:
- *    - para Google/Microsoft: descarga las claves publicas (JWKS) del
- *      proveedor correspondiente,
- *    - para el login local: verifica la firma con la clave compartida
- *      (HS256) configurada en app.auth.local.jwt-secret,
- *    - en ambos casos exige que el issuer coincida exactamente y que el
- *      audience ("aud") coincida con lo esperado para ese proveedor, ver
- *      {@link AudienceValidator}.
- * 3. Si el issuer no es ninguno de los tres, se rechaza.
+ * Resource server: unico proveedor de login es Microsoft (Entra External ID /
+ * CIAM). Antes de validar la firma, mira el claim "iss" del token para
+ * confirmar que es un tenant CIAM valido y arma (y cachea) el JwtDecoder
+ * correspondiente (descarga JWKS via el documento de descubrimiento OIDC),
+ * exigiendo que el issuer y el audience ("aud") coincidan con lo esperado
+ * (ver {@link AudienceValidator}). Cualquier otro issuer se rechaza.
  */
 public class MultiIssuerAuthenticationManagerResolver implements AuthenticationManagerResolver<HttpServletRequest> {
 
-    private static final String GOOGLE_ISSUER = "https://accounts.google.com";
-
-    // Los ID tokens de Microsoft (v2.0) tienen issuer
-    // "https://login.microsoftonline.com/<tenant-id>/v2.0", donde <tenant-id>
-    // varia segun la cuenta (organizacion, o el tenant "consumers" para
-    // cuentas personales). Se acepta cualquier tenant.
+    // El tenant de Microsoft de este proyecto es un tenant Entra External ID
+    // (CIAM), no un tenant Entra ID "workforce" clasico: sus ID tokens (v2.0)
+    // tienen issuer "https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0", no
+    // "https://login.microsoftonline.com/...". Se acepta cualquier tenant
+    // bajo ciamlogin.com.
     private static final Pattern MICROSOFT_ISSUER_PATTERN =
-            Pattern.compile("^https://login\\.microsoftonline\\.com/[^/]+/v2\\.0$");
+            Pattern.compile("^https://[^./]+\\.ciamlogin\\.com/[^/]+/v2\\.0$");
 
-    /** Issuer que usa este mismo backend para el login de usuario/contraseña de ejemplo. */
-    public static final String LOCAL_ISSUER = "https://pedidos360-auth.local";
-
-    private final String googleClientId;
     private final String microsoftClientId;
-    private final String localJwtSecret;
-    private final String localAudience;
     private final Converter<Jwt, ? extends AbstractAuthenticationToken> authenticationConverter;
     private final Map<String, AuthenticationManager> managersByIssuer = new ConcurrentHashMap<>();
 
     public MultiIssuerAuthenticationManagerResolver(
-            String googleClientId,
             String microsoftClientId,
-            String localJwtSecret,
-            String localAudience,
             Converter<Jwt, ? extends AbstractAuthenticationToken> authenticationConverter
     ) {
-        this.googleClientId = googleClientId;
         this.microsoftClientId = microsoftClientId;
-        this.localJwtSecret = localJwtSecret;
-        this.localAudience = localAudience;
         this.authenticationConverter = authenticationConverter;
     }
 
@@ -93,29 +63,18 @@ public class MultiIssuerAuthenticationManagerResolver implements AuthenticationM
     }
 
     private AuthenticationManager buildManagerForIssuer(String issuer) {
-        NimbusJwtDecoder jwtDecoder;
-        String expectedAudience;
-
-        if (GOOGLE_ISSUER.equals(issuer)) {
-            expectedAudience = googleClientId;
-            // fromIssuerLocation descarga el documento de descubrimiento OIDC
-            // (.well-known/openid-configuration) y las JWKS del proveedor.
-            jwtDecoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
-        } else if (MICROSOFT_ISSUER_PATTERN.matcher(issuer).matches()) {
-            expectedAudience = microsoftClientId;
-            jwtDecoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
-        } else if (LOCAL_ISSUER.equals(issuer)) {
-            expectedAudience = localAudience;
-            SecretKey key = new SecretKeySpec(localJwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            jwtDecoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-        } else {
+        if (!MICROSOFT_ISSUER_PATTERN.matcher(issuer).matches()) {
             throw new InvalidBearerTokenException("Issuer no confiable: " + issuer);
         }
+
+        // fromIssuerLocation descarga el documento de descubrimiento OIDC
+        // (.well-known/openid-configuration) y las JWKS del proveedor.
+        NimbusJwtDecoder jwtDecoder = (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(issuer);
 
         OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
         OAuth2TokenValidator<Jwt> withAudience = new DelegatingOAuth2TokenValidator<>(
                 withIssuer,
-                new AudienceValidator(expectedAudience)
+                new AudienceValidator(microsoftClientId)
         );
         jwtDecoder.setJwtValidator(withAudience);
 

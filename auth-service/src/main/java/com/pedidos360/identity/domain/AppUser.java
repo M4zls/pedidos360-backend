@@ -18,7 +18,8 @@ import jakarta.persistence.UniqueConstraint;
  * Usuario conocido por la app y su rol. Se crea la primera vez que alguien
  * inicia sesion (auto-provisioning en {@link com.pedidos360.identity.service.UserDirectory}):
  * si el email esta en {@code app.roles} toma ese rol, si no queda como CLIENTE.
- * Un ADMIN puede cambiar el rol despues desde /api/admin/users.
+ * El rol es fijo por email y se resincroniza contra {@code app.roles} en cada
+ * login ({@link #syncRole}) — no hay endpoint para cambiarlo "a mano".
  */
 @Entity
 @Table(
@@ -41,6 +42,13 @@ public class AppUser {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 12)
     private Role role;
+
+    /** Si ya acepto guardar sus datos (email/nombre/rol/historial de pedidos). */
+    @Column(nullable = false)
+    private boolean consentGiven = false;
+
+    @Column
+    private Instant consentGivenAt;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -90,8 +98,26 @@ public class AppUser {
         return role;
     }
 
-    public void setRole(Role role) {
+    /**
+     * Resincroniza el rol contra {@code app.roles} (llamado desde
+     * {@code UserDirectory.resolve} en cada login). No es una API para que
+     * alguien "elija" su rol: si cambia la config, esto lo refleja.
+     */
+    public void syncRole(Role role) {
         this.role = role;
+    }
+
+    public boolean isConsentGiven() {
+        return consentGiven;
+    }
+
+    public Instant getConsentGivenAt() {
+        return consentGivenAt;
+    }
+
+    public void giveConsent() {
+        this.consentGiven = true;
+        this.consentGivenAt = Instant.now();
     }
 
     public Instant getCreatedAt() {

@@ -1,7 +1,6 @@
 package com.pedidos360.orders.security;
 
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
 
 import org.springframework.core.convert.converter.Converter;
@@ -11,9 +10,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 /**
- * JWT validado -> authorities de rol. Primero el claim {@code roles} (App Roles
- * de Entra o el que emite el login local); si no viene, resuelve por email con
- * {@link RolesProperties}.
+ * JWT de Microsoft validado -> authorities de rol. El rol se resuelve SIEMPRE
+ * por email con {@link RolesProperties} — el login es solo con Microsoft y el
+ * token no trae ningun claim de rol propio.
  */
 public class RoleJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
@@ -26,33 +25,12 @@ public class RoleJwtAuthenticationConverter implements Converter<Jwt, AbstractAu
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
         String email = emailOf(jwt);
-
-        Set<Role> roles = rolesFromClaim(jwt);
-        if (roles.isEmpty()) {
-            roles = EnumSet.of(rolesConfig.roleFor(email));
-        }
+        Set<Role> roles = EnumSet.of(rolesConfig.roleFor(email));
 
         var authorities = roles.stream()
                 .map(r -> new SimpleGrantedAuthority(r.authority()))
                 .toList();
         return new JwtAuthenticationToken(jwt, authorities, email != null ? email : jwt.getSubject());
-    }
-
-    static Set<Role> rolesFromClaim(Jwt jwt) {
-        List<String> claim = jwt.getClaimAsStringList("roles");
-        Set<Role> roles = EnumSet.noneOf(Role.class);
-        if (claim == null) {
-            return roles;
-        }
-        for (String value : claim) {
-            switch (value.trim().toLowerCase()) {
-                case "admin", "administrador" -> roles.add(Role.ADMIN);
-                case "operador" -> roles.add(Role.OPERADOR);
-                case "cliente" -> roles.add(Role.CLIENTE);
-                default -> { }
-            }
-        }
-        return roles;
     }
 
     static String emailOf(Jwt jwt) {

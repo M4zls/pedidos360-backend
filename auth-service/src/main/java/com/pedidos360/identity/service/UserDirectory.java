@@ -1,7 +1,5 @@
 package com.pedidos360.identity.service;
 
-import java.util.List;
-
 import com.pedidos360.identity.config.RolesProperties;
 import com.pedidos360.identity.domain.AppUser;
 import com.pedidos360.identity.domain.Role;
@@ -13,7 +11,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * Fuente de verdad de "que rol tiene este email". Se consulta en cada request
- * (al convertir el JWT en authorities) y desde el panel de administracion.
+ * al convertir el JWT en authorities. El rol es fijo por email (ver
+ * {@code app.roles} en application.yml): no hay forma de cambiarlo en runtime.
  */
 @Service
 @Transactional
@@ -29,27 +28,30 @@ public class UserDirectory {
 
     /**
      * Devuelve el usuario para ese email, creandolo la primera vez con el rol
-     * que indique la config (o CLIENTE). Si ya existe y llega un nombre nuevo,
-     * lo actualiza.
+     * que indique la config (o CLIENTE). Si ya existe: actualiza el nombre si
+     * cambio, y RESINCRONIZA el rol contra {@code app.roles} — asi, si se
+     * agrega/saca un email de esas listas, el cambio se aplica en el proximo
+     * login sin quedar pegado al rol con el que se creo la fila la primera vez.
      */
     public AppUser resolve(String email, String name) {
         String normalized = normalize(email);
+        Role expectedRole = rolesConfig.roleFor(normalized);
         AppUser user = users.findByEmailIgnoreCase(normalized)
-                .orElseGet(() -> users.save(new AppUser(normalized, name, rolesConfig.roleFor(normalized))));
+                .orElseGet(() -> users.save(new AppUser(normalized, name, expectedRole)));
         if (StringUtils.hasText(name) && !name.equals(user.getName())) {
             user.setName(name);
+        }
+        if (user.getRole() != expectedRole) {
+            user.syncRole(expectedRole);
         }
         return user;
     }
 
-    @Transactional(readOnly = true)
-    public List<AppUser> list() {
-        return users.findAllByOrderByEmailAsc();
-    }
-
-    public AppUser updateRole(Long id, Role role) {
-        AppUser user = users.findById(id).orElseThrow(() -> new AppUserNotFoundException(id));
-        user.setRole(role);
+    /** Registra que el usuario acepto guardar sus datos (proteccion de datos). */
+    public AppUser giveConsent(String email) {
+        AppUser user = users.findByEmailIgnoreCase(normalize(email))
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + email));
+        user.giveConsent();
         return user;
     }
 

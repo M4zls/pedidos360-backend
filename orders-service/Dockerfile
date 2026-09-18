@@ -1,9 +1,9 @@
 # ─────────────────────────────────────────────────────────────
-#  Pedidos360 — Microservicio de pedidos (Spring Boot 4 / Java 17)
+#  Pedidos360 — Microservicio de pedidos (Spring Boot 4 / Java 21)
 # ─────────────────────────────────────────────────────────────
 
 # --- Stage 1: build ---
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .
 RUN mvn -q dependency:go-offline
@@ -11,7 +11,7 @@ COPY src ./src
 RUN mvn -q clean package -DskipTests
 
 # --- Stage 2: runtime ---
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
 

@@ -16,10 +16,10 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Resource server del servicio de inventario. Valida los mismos tokens que el
- * servicio de auth (Microsoft + login local HS256) y arma las authorities de
- * rol. Leer el catalogo requiere sesion; alta/edicion/baja/movimientos
- * requieren ADMIN u OPERADOR.
+ * Resource server del servicio de inventario. Valida los mismos tokens de
+ * Microsoft que el servicio de auth y arma las authorities de rol. Leer el
+ * catalogo requiere sesion; alta/edicion/baja/movimientos requieren ADMIN u
+ * OPERADOR.
  */
 @Configuration
 @EnableWebSecurity
@@ -28,12 +28,6 @@ public class SecurityConfig {
 
     @Value("${app.auth.microsoft.client-id}")
     private String microsoftClientId;
-
-    @Value("${app.auth.local.jwt-secret}")
-    private String localJwtSecret;
-
-    @Value("${app.auth.local.audience}")
-    private String localAudience;
 
     @Value("${app.cors.allowed-origin:http://localhost:4200}")
     private String allowedOrigin;
@@ -56,7 +50,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.authenticationManagerResolver(
                         new MultiIssuerAuthenticationManagerResolver(
-                                microsoftClientId, localJwtSecret, localAudience,
+                                microsoftClientId,
                                 new RoleJwtAuthenticationConverter(rolesConfig))));
         return http.build();
     }

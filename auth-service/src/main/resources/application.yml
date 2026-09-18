@@ -23,27 +23,23 @@ spring:
 
 app:
   # --- Roles por email ---
-  # El rol (ADMIN / OPERADOR / CLIENTE) se asigna por direccion de correo. Los
-  # emails que no figuren aca quedan como CLIENTE al primer login. Un ADMIN
-  # puede cambiar roles en runtime desde /api/admin/users (se guardan en la
-  # tabla app_user). inventory-service y orders-service tienen una COPIA de
-  # esta misma lista (para resolver el rol de tokens de Microsoft sin App
-  # Roles, sin depender de esta base) — si la cambiás, actualizalas ahí también.
+  # El rol (ADMIN / OPERADOR / CLIENTE) se asigna por direccion de correo,
+  # segun las cuentas reales del tenant Entra External ID (CIAM)
+  # proyecto3602.onmicrosoft.com. Los emails que no figuren aca quedan como
+  # CLIENTE al primer login (ej. raul.perez@proyecto3602.onmicrosoft.com,
+  # que arma pedidos desde la carta). El rol queda FIJO por email: no hay
+  # forma de cambiarlo desde la UI, y se resincroniza en cada login
+  # (UserDirectory.resolve) por si esta lista cambia. inventory-service y
+  # orders-service tienen una COPIA de esta misma lista (para resolver el rol
+  # de tokens de Microsoft sin depender de esta base) — si la cambiás,
+  # actualizalas ahí también.
   roles:
     admins:
-      - cam.carrascop@duocuc.cl
+      - pedro.porro@proyecto3602.onmicrosoft.com
     operadores:
-      - max.palma@duocuc.cl
-      # car.donosol@duocuc.cl queda como CLIENTE (no listado)
+      - juanfaure@proyecto3602.onmicrosoft.com
+      # raul.perez@proyecto3602.onmicrosoft.com queda como CLIENTE (no listado)
   auth:
-    google:
-      # OAuth Client ID (tipo "Web application") de Google Cloud Console.
-      # Como obtenerlo: https://console.cloud.google.com -> APIs & Services
-      # -> Credentials -> Create Credentials -> OAuth client ID -> Web
-      # application -> Authorized JavaScript origins: http://localhost:4200
-      # Debe ser EXACTAMENTE el mismo valor que GOOGLE_CLIENT_ID en
-      # front/src/app/auth/google/google-auth.config.ts
-      client-id: <GOOGLE_CLIENT_ID>
     microsoft:
       # "Application (client) ID" del App Registration en Azure AD.
       # Los tres servicios (auth, inventory, orders) validan el mismo claim
@@ -51,35 +47,6 @@ app:
       # front/src/app/auth/microsoft/microsoft-auth.config.ts y con el
       # app.auth.microsoft.client-id de los otros dos servicios.
       #
-      # Valor tomado del repo de referencia CVm0/pedidos360-frontend. Cambialo
-      # por el tuyo cuando crees tu propio App Registration.
-      client-id: ${MICROSOFT_CLIENT_ID:89fde275-566d-498a-a663-bbed17a2a29d}
-    local:
-      # Login de USUARIO/CONTRASEÑA (POST /api/auth/login), ademas de
-      # Microsoft. Lista fija en config, sin base de datos ni hash de
-      # contraseñas: es para la demo. Cada usuario define su rol, que viaja
-      # en el claim "roles" del JWT emitido (los otros servicios lo leen ahí,
-      # no de esta base).
-      #   - Microsoft (cam.carrascop)  -> ADMIN   (por email, ver app.roles)
-      #   - operador / operador123     -> OPERADOR
-      #   - cliente  / cliente123      -> CLIENTE
-      users:
-        - username: operador
-          password: operador123
-          name: Operador Demo
-          role: OPERADOR
-        - username: cliente
-          password: cliente123
-          name: Cliente Demo
-          role: CLIENTE
-        - username: demo
-          password: demo123
-          name: Usuario de ejemplo
-          role: CLIENTE
-      # Clave para firmar (HS256) los JWT que emite este servicio. Minimo 32
-      # caracteres. Tiene que ser LA MISMA en inventory-service y
-      # orders-service (validan el mismo JWT). Cambiala por una propia (y
-      # sacala de application.yml, p.ej. variable de entorno) antes de usar
-      # esto en serio.
-      jwt-secret: ${LOCAL_JWT_SECRET:cambia-esta-clave-secreta-por-una-propia-de-al-menos-32-caracteres}
-      audience: ${LOCAL_JWT_AUDIENCE:pedidos360-front}
+      # App Registration propio (single-tenant, tenant c450c5ae-...,
+      # dominio proyecto3602.onmicrosoft.com).
+      client-id: ${MICROSOFT_CLIENT_ID:7b48efc0-534c-4b13-9e02-4c60a129f151}

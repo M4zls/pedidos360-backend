@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
  * <pre>
  * app:
  *   roles:
- *     admins: [cam.carrascop&#64;duocuc.cl]
- *     operadores: [max.palma&#64;duocuc.cl]
+ *     admins: [pedro.porro&#64;proyecto3602.onmicrosoft.com]
+ *     operadores: [juanfaure&#64;proyecto3602.onmicrosoft.com]
  * </pre>
  */
 @Component

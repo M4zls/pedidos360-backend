@@ -20,11 +20,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Resource server que acepta como Bearer token un ID token de Google, uno de
- * Microsoft, o un JWT propio emitido por POST /api/auth/login (login de
- * usuario/contraseña de ejemplo) - ver
- * {@link MultiIssuerAuthenticationManagerResolver}. Los Client IDs / secreto
- * local se completan en application.yml (app.auth.*).
+ * Resource server: unico proveedor de login es Microsoft (Entra External ID /
+ * CIAM) - ver {@link MultiIssuerAuthenticationManagerResolver}. El Client ID
+ * se completa en application.yml (app.auth.microsoft.client-id).
  *
  * El rol (ADMIN / OPERADOR / CLIENTE) se resuelve por email en
  * {@link RoleJwtAuthenticationConverter} y queda como authority ROLE_*, que
@@ -35,17 +33,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Value("${app.auth.google.client-id}")
-    private String googleClientId;
-
     @Value("${app.auth.microsoft.client-id}")
     private String microsoftClientId;
-
-    @Value("${app.auth.local.jwt-secret}")
-    private String localJwtSecret;
-
-    @Value("${app.auth.local.audience}")
-    private String localAudience;
 
     private final UserDirectory userDirectory;
 
@@ -60,13 +49,6 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // El login de usuario/contraseña de ejemplo tiene que ser publico:
-                        // todavia no hay token cuando se llama a este endpoint.
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-
-                        // Administracion de roles: solo ADMIN.
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
                         // Inventario: leer lo puede cualquier usuario logueado;
                         // modificar (alta/edicion/baja/movimientos) solo staff.
                         .requestMatchers(HttpMethod.GET, "/api/inventory/**").authenticated()
@@ -78,7 +60,7 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.authenticationManagerResolver(
                         new MultiIssuerAuthenticationManagerResolver(
-                                googleClientId, microsoftClientId, localJwtSecret, localAudience,
+                                microsoftClientId,
                                 new RoleJwtAuthenticationConverter(userDirectory)
                         )
                 ));

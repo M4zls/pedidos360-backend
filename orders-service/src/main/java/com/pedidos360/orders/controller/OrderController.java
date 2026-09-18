@@ -5,7 +5,10 @@ import java.util.List;
 
 import com.pedidos360.orders.controller.dto.ChangeStatusRequest;
 import com.pedidos360.orders.controller.dto.CreateOrderRequest;
+import com.pedidos360.orders.controller.dto.OrderNotificationResponse;
 import com.pedidos360.orders.controller.dto.OrderResponse;
+import com.pedidos360.orders.controller.dto.OrderStatusChangeResponse;
+import com.pedidos360.orders.controller.dto.SalesReportResponse;
 import com.pedidos360.orders.domain.CustomerOrder;
 import com.pedidos360.orders.domain.OrderStatus;
 import com.pedidos360.orders.service.OrderAccessDeniedException;
@@ -45,7 +48,9 @@ public class OrderController {
         this.orders = orders;
     }
 
+    /** Arma un pedido: CLIENTE y ADMIN. OPERADOR (cocina) no arma pedidos. */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','CLIENTE')")
     public ResponseEntity<OrderResponse> create(@Valid @RequestBody CreateOrderRequest body,
                                                 Authentication auth) {
         List<OrderService.LineInput> lines = body.lines().stream()
@@ -59,8 +64,9 @@ public class OrderController {
                 .body(OrderResponse.from(created));
     }
 
-    /** Pedidos del usuario logueado. */
+    /** Pedidos del usuario logueado: CLIENTE y ADMIN. */
     @GetMapping("/mine")
+    @PreAuthorize("hasAnyRole('ADMIN','CLIENTE')")
     public List<OrderResponse> mine(Authentication auth) {
         return orders.listForCustomer(CurrentUser.email(auth)).stream()
                 .map(OrderResponse::from).toList();
@@ -86,13 +92,47 @@ public class OrderController {
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','OPERADOR')")
     public OrderResponse changeStatus(@PathVariable Long id,
-                                      @Valid @RequestBody ChangeStatusRequest body) {
-        return OrderResponse.from(orders.changeStatus(id, body.status()));
+                                      @Valid @RequestBody ChangeStatusRequest body,
+                                      Authentication auth) {
+        return OrderResponse.from(orders.changeStatus(id, body.status(), CurrentUser.email(auth)));
     }
 
+    /** Cancela un pedido: CLIENTE (el suyo, si sigue PENDIENTE) y ADMIN (cualquiera). */
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN','CLIENTE')")
     public OrderResponse cancel(@PathVariable Long id, Authentication auth) {
         return OrderResponse.from(
                 orders.cancel(id, CurrentUser.email(auth), CurrentUser.isStaff(auth)));
+    }
+
+    /** Historial de cambios de estado del pedido: dueño o staff. */
+    @GetMapping("/{id}/history")
+    public List<OrderStatusChangeResponse> history(@PathVariable Long id, Authentication auth) {
+        CustomerOrder order = orders.get(id);
+        boolean owner = order.getCustomerEmail().equalsIgnoreCase(CurrentUser.email(auth));
+        if (!owner && !CurrentUser.isStaff(auth)) {
+            throw new OrderAccessDeniedException();
+        }
+        return orders.history(id).stream().map(OrderStatusChangeResponse::from).toList();
+    }
+
+    /** Notificaciones del cliente logueado sobre sus pedidos. */
+    @GetMapping("/notifications/mine")
+    public List<OrderNotificationResponse> myNotifications(Authentication auth) {
+        return orders.notificationsFor(CurrentUser.email(auth)).stream()
+                .map(OrderNotificationResponse::from).toList();
+    }
+
+    @PatchMapping("/notifications/{id}/read")
+    public ResponseEntity<Void> markNotificationRead(@PathVariable Long id, Authentication auth) {
+        orders.markNotificationRead(id, CurrentUser.email(auth));
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Reporte de ventas agregado por estado. Solo ADMIN. */
+    @GetMapping("/reports/sales")
+    @PreAuthorize("hasRole('ADMIN')")
+    public SalesReportResponse salesReport() {
+        return SalesReportResponse.from(orders.salesReport());
     }
 }

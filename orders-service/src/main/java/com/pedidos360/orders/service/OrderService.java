@@ -1,13 +1,20 @@
 package com.pedidos360.orders.service;
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 import com.pedidos360.orders.client.InventoryClient;
 import com.pedidos360.orders.client.ProductView;
+import com.pedidos360.orders.controller.dto.StatusCount;
 import com.pedidos360.orders.domain.CustomerOrder;
 import com.pedidos360.orders.domain.OrderLine;
+import com.pedidos360.orders.domain.OrderNotification;
 import com.pedidos360.orders.domain.OrderStatus;
+import com.pedidos360.orders.domain.OrderStatusChange;
+import com.pedidos360.orders.repository.OrderNotificationRepository;
 import com.pedidos360.orders.repository.OrderRepository;
+import com.pedidos360.orders.repository.OrderStatusChangeRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,18 +23,35 @@ import org.springframework.util.StringUtils;
 /**
  * Reglas de negocio de los pedidos. CRUD basico + cambios de estado. No toca
  * el stock del inventario: le pide el producto al servicio de inventario por
- * HTTP ({@link InventoryClient}) solo para validar y congelar el precio.
+ * HTTP ({@link InventoryClient}) solo para validar y congelar el precio. Cada
+ * cambio de estado deja un {@link OrderStatusChange} (historial) y, en los
+ * hitos que le importan al cliente, una {@link OrderNotification}.
  */
 @Service
 @Transactional
 public class OrderService {
 
+    /** Hitos que se le notifican al cliente (los intermedios no le aportan). */
+    private static final Map<OrderStatus, String> NOTIFIABLE_LABELS = new EnumMap<>(OrderStatus.class);
+    static {
+        NOTIFIABLE_LABELS.put(OrderStatus.LISTO, "listo");
+        NOTIFIABLE_LABELS.put(OrderStatus.DESPACHADO, "despachado");
+        NOTIFIABLE_LABELS.put(OrderStatus.ENTREGADO, "entregado");
+        NOTIFIABLE_LABELS.put(OrderStatus.CANCELADO, "cancelado");
+    }
+
     private final OrderRepository orders;
     private final InventoryClient inventory;
+    private final OrderStatusChangeRepository statusChanges;
+    private final OrderNotificationRepository notifications;
 
-    public OrderService(OrderRepository orders, InventoryClient inventory) {
+    public OrderService(OrderRepository orders, InventoryClient inventory,
+                        OrderStatusChangeRepository statusChanges,
+                        OrderNotificationRepository notifications) {
         this.orders = orders;
         this.inventory = inventory;
+        this.statusChanges = statusChanges;
+        this.notifications = notifications;
     }
 
     public record LineInput(Long productId, int quantity) {}
@@ -72,7 +96,7 @@ public class OrderService {
     }
 
     /** Solo staff. Cualquier estado no terminal -> cualquier otro. */
-    public CustomerOrder changeStatus(Long id, OrderStatus newStatus) {
+    public CustomerOrder changeStatus(Long id, OrderStatus newStatus, String changedBy) {
         CustomerOrder order = get(id);
         if (order.getStatus().isTerminal()) {
             throw new InvalidOrderException(
@@ -81,7 +105,7 @@ public class OrderService {
         if (newStatus == OrderStatus.PENDIENTE) {
             throw new InvalidOrderException("No se puede volver a PENDIENTE");
         }
-        order.setStatus(newStatus);
+        applyStatusChange(order, newStatus, changedBy);
         return order;
     }
 
@@ -101,8 +125,49 @@ public class OrderService {
         if (!staff && order.getStatus() != OrderStatus.PENDIENTE) {
             throw new InvalidOrderException("Solo se puede cancelar mientras esta PENDIENTE");
         }
-        order.setStatus(OrderStatus.CANCELADO);
+        applyStatusChange(order, OrderStatus.CANCELADO, requesterEmail);
         return order;
+    }
+
+    /** Muta el estado y deja historial + notificacion, todo en la misma transaccion. */
+    private void applyStatusChange(CustomerOrder order, OrderStatus newStatus, String changedBy) {
+        OrderStatus previous = order.getStatus();
+        order.setStatus(newStatus);
+        statusChanges.save(new OrderStatusChange(order, previous, newStatus, changedBy));
+
+        String label = NOTIFIABLE_LABELS.get(newStatus);
+        if (label != null) {
+            String message = "Tu pedido #" + order.getId() + " está " + label;
+            notifications.save(new OrderNotification(order.getCustomerEmail(), order.getId(), message));
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderStatusChange> history(Long id) {
+        if (!orders.existsById(id)) {
+            throw new OrderNotFoundException(id);
+        }
+        return statusChanges.findByOrderIdOrderByChangedAtDesc(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderNotification> notificationsFor(String customerEmail) {
+        return notifications.findByCustomerEmailIgnoreCaseOrderByCreatedAtDesc(customerEmail);
+    }
+
+    /** Solo el dueño puede marcar su notificacion como leida. */
+    public void markNotificationRead(Long notificationId, String requesterEmail) {
+        OrderNotification notification = notifications.findById(notificationId)
+                .orElseThrow(OrderAccessDeniedException::new);
+        if (!notification.getCustomerEmail().equalsIgnoreCase(requesterEmail)) {
+            throw new OrderAccessDeniedException();
+        }
+        notification.markRead();
+    }
+
+    @Transactional(readOnly = true)
+    public List<StatusCount> salesReport() {
+        return orders.countAndTotalByStatus();
     }
 
     private static String trimToNull(String value) {

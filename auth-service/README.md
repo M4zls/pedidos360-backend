@@ -1,6 +1,6 @@
 # Pedidos360 — Servicio de Auth
 
-**Spring Boot 4 / Java 17**. Login y roles. Proceso y base propios
+**Spring Boot 4 / Java 21**. Login y roles. Proceso y base propios
 (`pedidos360-auth.db`, SQLite). Puerto **8080**.
 
 Ve también [`../inventory-service`](../inventory-service) y
@@ -9,24 +9,25 @@ tiene su base y su README.
 
 | Paquete                   | Qué es                                                                                   |
 | ------------------------- | -------------------------------------------------------------------------------------- |
-| `com.pedidos360.auth`     | Resource server: valida ID tokens de Microsoft (Azure AD, multi-tenant) y un JWT propio del login usuario/contraseña. Emite ese JWT (`POST /api/auth/login`). |
-| `com.pedidos360.identity` | Roles por email (ADMIN / OPERADOR / CLIENTE). Convierte el JWT validado en authorities `ROLE_*` y expone `/api/admin/users`. |
+| `com.pedidos360.auth`     | Resource server: valida ID tokens de Microsoft (Entra External ID / CIAM). Unico proveedor de login. |
+| `com.pedidos360.identity` | Roles por email (ADMIN / OPERADOR / CLIENTE), fijos. Convierte el JWT validado en authorities `ROLE_*`. |
 
 ## Roles
 
-Setup actual:
+Setup actual (tenant `proyecto3602.onmicrosoft.com`):
 
-| Login                        | Rol                                                        |
-| ---------------------------- | -------------------------------------------------------- |
-| **Microsoft** (cam.carrascop)| **ADMIN** — por email (`app.roles.admins` en `application.yml`). |
-| **`operador` / `operador123`** | **OPERADOR** — usuario local (`app.auth.local.users`).     |
-| **`cliente` / `cliente123`**   | **CLIENTE** — usuario local.                               |
+| Login                                         | Rol          |
+| ---------------------------------------------- | ------------ |
+| **Microsoft** — pedro.porro@proyecto3602.onmicrosoft.com | **ADMIN** — por email (`app.roles.admins`). |
+| **Microsoft** — juanfaure@proyecto3602.onmicrosoft.com   | **OPERADOR** — por email (`app.roles.operadores`). |
+| **Microsoft** — cualquier otra cuenta del tenant (ej. raul.perez@proyecto3602.onmicrosoft.com) | **CLIENTE** — default. |
 
-El rol de los usuarios locales viaja en el claim **`roles`** del JWT que emite
-`LocalAuthController`. Para Microsoft, como el token no trae `roles`, se resuelve
-por **email**: `app.roles.admins` / `app.roles.operadores`; quien no figure queda
-**CLIENTE**. Un ADMIN puede ajustar esos roles por email en runtime
-(`PATCH /api/admin/users/{id}`, tabla `app_user`).
+El rol se resuelve **siempre por email** (el token de Microsoft no trae
+ningún claim de rol propio): `app.roles.admins` / `app.roles.operadores`;
+quien no figure queda **CLIENTE**. El rol es **fijo por email** y se
+resincroniza en cada login: no existe ningún endpoint para cambiarlo en
+runtime, así nadie puede entrar con un rol distinto al que le corresponde
+por su cuenta.
 
 `inventory-service` y `orders-service` validan el mismo token de forma
 **independiente** (no llaman a este servicio): cada uno tiene su propia copia
@@ -35,17 +36,13 @@ cambiás `app.roles` acá, actualizalo también en esos dos.
 
 | Rol      | Puede                                                                    |
 | -------- | ---------------------------------------------------------------------- |
-| ADMIN    | Todo, incluida la gestión de roles (`/api/admin/**`).                    |
-| OPERADOR | Gestionar inventario (POST/PUT/DELETE) y estados de pedidos.             |
+| ADMIN    | Todo: inventario, pedidos, cocina, despacho y ventas.                    |
+| OPERADOR | Gestionar inventario (POST/PUT/DELETE), cocina, despacho y estados de pedidos. |
 | CLIENTE  | Ver catálogo, crear y ver/cancelar sus propios pedidos.                 |
 
 Backend del proyecto Pedidos360 — repo aparte del frontend
 (`M4zls/pedidos360-frontend`). El `app.auth.microsoft.client-id` de acá y el
 `MICROSOFT_CLIENT_ID` del front **tienen que ser el mismo valor**.
-
-> El código conserva además soporte para ID tokens de Google
-> (`MultiIssuerAuthenticationManagerResolver`), aunque el frontend actual ya no
-> ofrece ese login.
 
 ## Ejecutar
 
@@ -64,10 +61,8 @@ pasá `DB_URL`.
 
 | Método   | Ruta                  | Descripción                                              |
 | -------- | --------------------- | -------------------------------------------------------- |
-| `POST`   | `/api/auth/login`     | Login usuario/contraseña; devuelve un JWT HS256.          |
 | `GET`    | `/api/me`             | Datos del usuario autenticado (requiere `Bearer`).        |
-| `GET`    | `/api/admin/users`    | Lista usuarios y roles (ADMIN).                            |
-| `PATCH`  | `/api/admin/users/{id}` | Cambia el rol de un usuario (ADMIN).                     |
+| `POST`   | `/api/me/consent`     | Registra el consentimiento de datos del usuario logueado.  |
 
 ## Configuración (`src/main/resources/application.yml`)
 
@@ -75,6 +70,3 @@ pasá `DB_URL`.
 - `app.roles.*` — roles por email (admins/operadores).
 - `app.auth.microsoft.client-id` — debe coincidir con el front y con
   `inventory-service` / `orders-service`.
-- `app.auth.local.*` — usuarios/contraseñas y `jwt-secret` de demo (**no
-  producción**). El `jwt-secret` y `audience` tienen que ser iguales en los
-  tres servicios (validan el mismo JWT).

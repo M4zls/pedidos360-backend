@@ -9,9 +9,11 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 /**
- * Deja creados los usuarios con rol configurado ({@code app.roles}) al arrancar,
- * asi un ADMIN puede verlos y ajustar roles aunque todavia no hayan iniciado
- * sesion. El resto de los usuarios se crea solo al primer login (CLIENTE).
+ * Deja creados los usuarios con rol configurado ({@code app.roles}) al
+ * arrancar, para que el rol quede resuelto en la base desde el primer login.
+ * El resto de los usuarios se crea solo al primer login (CLIENTE). El rol es
+ * fijo por email (ver {@code app.roles} en application.yml): no hay endpoint
+ * para cambiarlo en runtime.
  */
 @Component
 class RolesDataInitializer implements CommandLineRunner {

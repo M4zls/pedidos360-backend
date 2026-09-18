@@ -3,11 +3,13 @@ package com.pedidos360.orders.repository;
 import java.util.List;
 import java.util.Optional;
 
+import com.pedidos360.orders.controller.dto.StatusCount;
 import com.pedidos360.orders.domain.CustomerOrder;
 import com.pedidos360.orders.domain.OrderStatus;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 public interface OrderRepository extends JpaRepository<CustomerOrder, Long> {
 
@@ -22,4 +24,8 @@ public interface OrderRepository extends JpaRepository<CustomerOrder, Long> {
 
     @EntityGraph(attributePaths = "lines")
     List<CustomerOrder> findByStatusOrderByCreatedAtDesc(OrderStatus status);
+
+    @Query("select new com.pedidos360.orders.controller.dto.StatusCount(o.status, count(o), coalesce(sum(o.total), 0))"
+            + " from CustomerOrder o group by o.status")
+    List<StatusCount> countAndTotalByStatus();
 }

@@ -1,17 +1,17 @@
 # Pedidos360 — Servicio de Inventario
 
-**Spring Boot 4 / Java 17**. Catálogo de productos y movimientos de stock.
+**Spring Boot 4 / Java 21**. Catálogo de productos y movimientos de stock.
 Proceso y base propios (`pedidos360-inventory.db`, SQLite). Puerto **8083**.
 
 ## Cómo se integra
 
-- **Auth**: valida los mismos Bearer tokens que [`../auth-service`](../auth-service)
-  (Microsoft multi-tenant + JWT del login local HS256), de forma independiente
-  — no llama al servicio de auth. Config en `app.auth.*`, tiene que coincidir.
-- **Roles**: del claim `roles` del token; si no viene (Microsoft sin App
-  Roles), por email con `app.roles.*` (copia de la config de auth-service).
-  Leer el catálogo requiere sesión; alta/edición/baja/movimientos requieren
-  ADMIN u OPERADOR.
+- **Auth**: valida los mismos Bearer tokens de Microsoft que
+  [`../auth-service`](../auth-service) (unico proveedor de login), de forma
+  independiente — no llama al servicio de auth. Config en `app.auth.*`, tiene
+  que coincidir.
+- **Roles**: siempre por email con `app.roles.*` (copia de la config de
+  auth-service). Leer el catálogo requiere sesión; alta/edición/baja/movimientos
+  requieren ADMIN u OPERADOR.
 - **Pedidos**: [`orders-service`](../orders-service) le consulta productos por
   HTTP para validar y congelar precios. Este servicio no sabe nada de pedidos.
 
@@ -58,5 +58,5 @@ la siembra con la carta de ejemplo (`InventoryDataInitializer`, con
 `imageUrl`). Para regenerarla, borrá ese archivo.
 
 Config (`src/main/resources/application.yml`, todo overrideable por env):
-`SERVER_PORT`, `DB_URL`, `MICROSOFT_CLIENT_ID`, `LOCAL_JWT_SECRET`,
-`LOCAL_JWT_AUDIENCE`, `CORS_ALLOWED_ORIGIN`, `app.roles.*`.
+`SERVER_PORT`, `DB_URL`, `MICROSOFT_CLIENT_ID`, `CORS_ALLOWED_ORIGIN`,
+`app.roles.*`.

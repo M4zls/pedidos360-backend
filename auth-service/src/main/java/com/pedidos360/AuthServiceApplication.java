@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Servicio de autenticacion y roles. Proceso y base de datos propios
  * (SQLite {@code pedidos360-auth.db}).
  *  - {@code com.pedidos360.auth}     -> resource server (login Microsoft / local).
- *  - {@code com.pedidos360.identity} -> roles por email, tabla app_user, /api/admin/users.
+ *  - {@code com.pedidos360.identity} -> roles por email (fijos, ver app.roles), tabla app_user.
  *
  * El inventario y los pedidos son otros servicios (ver ../inventory-service y
  * ../orders-service), cada uno con su base.
