@@ -2,6 +2,10 @@
 #  Ingress del backend — publica /api/* a traves de Traefik
 #  (el controller que k3s instala de fabrica, escuchando en :80).
 #
+#  Las rutas son exactamente las que exponen los controllers y consume el
+#  SPA: /api/me (auth), /api/inventory (inventory) y /api/orders (orders).
+#  No hay /api/auth ni /api/admin: ningun controller los sirve.
+#
 #  El front declara su propio Ingress para "/" en el otro repo.
 #  Traefik prioriza las reglas por longitud del path, asi que estas
 #  (/api/...) ganan sobre la "/" del front: no hay orden de aplicacion
@@ -20,22 +24,11 @@ spec:
   rules:
     - http:
         paths:
-          - path: /api/auth
-            pathType: Prefix
-            backend:
-              service:
-                name: auth
-                port:
-                  number: 8080
-          - path: /api/admin
-            pathType: Prefix
-            backend:
-              service:
-                name: auth
-                port:
-                  number: 8080
+          # Prefix y no Exact: cubre /api/me y tambien /api/me/consent, que el
+          # SPA usa (user.service.ts). Con Exact, /api/me/consent no matchearia
+          # ninguna regla, caeria en la "/" del front y devolveria 404.
           - path: /api/me
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: auth
