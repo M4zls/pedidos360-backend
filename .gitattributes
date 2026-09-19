@@ -1,0 +1,18 @@
+# ─────────────────────────────────────────────────────────────
+#  Finales de línea. El repo se edita en Windows (core.autocrlf), pero
+#  casi todo esto se ejecuta en Linux: los .sh corren en la EC2 y en los
+#  runners, y un CRLF los rompe con "$'\r': command not found" o, en un
+#  contenedor, con "bad interpreter".
+#  Forzamos LF para que no dependa de la máquina donde se hizo checkout.
+# ─────────────────────────────────────────────────────────────
+
+* text=auto
+
+*.sh         text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+Dockerfile   text eol=lf
+*.md         text eol=lf
+
+# PowerShell sí se ejecuta en Windows.
+*.ps1        text eol=crlf

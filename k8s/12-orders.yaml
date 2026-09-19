@@ -1,0 +1,102 @@
+# ─────────────────────────────────────────────────────────────
+#  orders-service — pedidos. Llama a inventory por HTTP para
+#  descontar stock; en el cluster lo resuelve el DNS del Service.
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: orders-data
+  namespace: pedidos360
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  namespace: pedidos360
+  labels:
+    app.kubernetes.io/name: orders
+    app.kubernetes.io/part-of: pedidos360
+spec:
+  replicas: 1
+  # Ver la nota en 10-auth.yaml: SQLite sobre PVC RWO no admite dos escritores.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: orders
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: orders
+        app.kubernetes.io/part-of: pedidos360
+    spec:
+      imagePullSecrets:
+        - name: ecr-creds
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: orders
+          image: __IMAGE_ORDERS__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+          env:
+            - name: DB_URL
+              value: jdbc:sqlite:/data/pedidos360-orders.db
+            # DNS interno del cluster: <service>.<namespace>.svc.cluster.local.
+            # Al estar en el mismo namespace alcanzaria "http://inventory:8083".
+            - name: INVENTORY_BASE_URL
+              value: http://inventory.pedidos360.svc.cluster.local:8083
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC"
+          envFrom:
+            - secretRef:
+                name: pedidos360-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 640Mi
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: orders-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders
+  namespace: pedidos360
+spec:
+  selector:
+    app.kubernetes.io/name: orders
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http

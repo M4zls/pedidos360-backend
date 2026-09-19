@@ -1,0 +1,109 @@
+# ─────────────────────────────────────────────────────────────
+#  auth-service — login local + Microsoft Entra, roles por email.
+#  La SQLite vive en un PVC (StorageClass local-path, la que trae k3s),
+#  asi que sobrevive a los redeploys y al stop/start de la EC2.
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: auth-data
+  namespace: pedidos360
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: pedidos360
+  labels:
+    app.kubernetes.io/name: auth
+    app.kubernetes.io/part-of: pedidos360
+spec:
+  replicas: 1
+  # Recreate y no RollingUpdate: la base es un archivo SQLite sobre un PVC
+  # ReadWriteOnce. Con RollingUpdate el pod nuevo y el viejo montarian el
+  # mismo archivo a la vez (mismo nodo) y dos escritores corrompen la base.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: auth
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: auth
+        app.kubernetes.io/part-of: pedidos360
+    spec:
+      imagePullSecrets:
+        - name: ecr-creds
+      # IDs numericos fijos: fsGroup hace que Kubernetes ajuste el grupo del
+      # volumen montado para que el proceso pueda escribir la SQLite.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: auth
+          image: __IMAGE_AUTH__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: DB_URL
+              value: jdbc:sqlite:/data/pedidos360-auth.db
+            # El contenedor tiene 640Mi de limite: que la JVM dimensione el
+            # heap a partir de eso y no del total de la maquina.
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC"
+          envFrom:
+            - secretRef:
+                name: pedidos360-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 640Mi
+          # Sin actuator en el pom, asi que las probes son TCP.
+          # startupProbe cubre el arranque frio de Spring Boot (~60s en la
+          # instancia de 2 vCPU que usamos)
+          # sin obligar a liveness a tener un initialDelay enorme.
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: auth-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth
+  namespace: pedidos360
+spec:
+  selector:
+    app.kubernetes.io/name: auth
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

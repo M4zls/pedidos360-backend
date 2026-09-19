@@ -1,0 +1,84 @@
+# ─────────────────────────────────────────────────────────────
+#  CI del backend — compila y testea los 3 microservicios.
+#  No toca AWS ni necesita credenciales: es la verificacion que corre
+#  en las ramas de trabajo de gitflow y en los PR hacia develop/main.
+# ─────────────────────────────────────────────────────────────
+name: CI backend
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+      - "feature/**"
+      - "bugfix/**"
+      - "release/**"
+      - "hotfix/**"
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Un push nuevo sobre la misma rama cancela el build anterior.
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build + test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth-service, inventory-service, orders-service]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Compilar y testear
+        working-directory: ${{ matrix.service }}
+        run: mvn -B verify
+
+      - name: Publicar resultados de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-${{ matrix.service }}
+          path: ${{ matrix.service }}/target/surefire-reports/
+          if-no-files-found: ignore
+
+  # Verifica que las imagenes construyen antes de mergear, sin publicarlas.
+  docker-build:
+    name: Verificar Dockerfile (${{ matrix.service }})
+    # En develop y main esto ya lo cubre el job "build" del CD, que ademas
+    # publica en ECR: correrlo aca seria construir dos veces lo mismo.
+    if: github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth-service, inventory-service, orders-service]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (sin push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}

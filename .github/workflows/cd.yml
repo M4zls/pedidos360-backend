@@ -1,0 +1,174 @@
+# ─────────────────────────────────────────────────────────────
+#  CD del backend — build -> ECR -> k3s en la EC2.
+#
+#  gitflow:
+#    develop  -> construye y publica en ECR (tag develop-<sha>), NO despliega.
+#    main     -> construye, publica (main-<sha> + latest) y despliega.
+#    manual   -> "Run workflow" con un image_tag existente = rollback, sin
+#                reconstruir nada.
+#
+#  Las credenciales del Learner Lab duran ~4 h: antes de cada corrida hay que
+#  refrescar los secrets AWS_*. Ver deploy/scripts/sync-lab-credentials.ps1,
+#  que los reescribe en este repo y en el del front de una sola pasada.
+# ─────────────────────────────────────────────────────────────
+name: CD backend
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag ya publicado en ECR para re-desplegar (rollback). Vacio = construir este commit."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  # Nunca dos deploys a la vez sobre el mismo cluster.
+  group: cd-backend
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  meta:
+    name: Calcular tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.calc.outputs.tag }}
+      build: ${{ steps.calc.outputs.build }}
+      deploy: ${{ steps.calc.outputs.deploy }}
+    steps:
+      - name: Resolver tag y acciones
+        id: calc
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          SHORT="${GITHUB_SHA::7}"
+          if [ -n "$INPUT_TAG" ]; then
+            # Rollback: la imagen ya existe en ECR, solo se redespliega.
+            echo "tag=$INPUT_TAG"  >> "$GITHUB_OUTPUT"
+            echo "build=false"     >> "$GITHUB_OUTPUT"
+            echo "deploy=true"     >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            echo "tag=main-$SHORT" >> "$GITHUB_OUTPUT"
+            echo "build=true"      >> "$GITHUB_OUTPUT"
+            echo "deploy=true"     >> "$GITHUB_OUTPUT"
+          else
+            # develop: se publica la imagen para poder promocionarla despues,
+            # pero no se toca el entorno desplegado.
+            echo "tag=develop-$SHORT" >> "$GITHUB_OUTPUT"
+            echo "build=true"         >> "$GITHUB_OUTPUT"
+            echo "deploy=false"       >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build + push (${{ matrix.service }})
+    needs: meta
+    if: needs.meta.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - service: auth-service
+            repo: pedidos360/auth
+          - service: inventory-service
+            repo: pedidos360/inventory
+          - service: orders-service
+            repo: pedidos360/orders
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Credenciales AWS (temporales del Learner Lab)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login en ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # El tag inmutable (<rama>-<sha>) es el que despliega el cluster;
+      # "latest" se agrega solo en main, como referencia humana.
+      - name: Calcular tags
+        id: tags
+        env:
+          IMG: ${{ vars.ECR_REGISTRY }}/${{ matrix.repo }}
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          {
+            echo "list<<EOF"
+            echo "$IMG:$TAG"
+            # if explicito y no "[ ] && echo": con set -e, un && que falla
+            # aborta el step, y en develop la condicion es falsa a proposito.
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then echo "$IMG:latest"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build y push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service }}
+          push: true
+          tags: ${{ steps.tags.outputs.list }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    name: Deploy a k3s
+    needs: [meta, build]
+    # always(): el rollback salta el job build, y "skipped" no debe frenar esto.
+    if: |
+      always() &&
+      needs.meta.outputs.deploy == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copiar manifiestos y script a la EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "k8s/*,deploy/scripts/deploy-k8s.sh"
+          target: "/tmp/pedidos360-backend"
+          rm: true
+
+      - name: Aplicar en el cluster
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: IMAGE_AUTH,IMAGE_INVENTORY,IMAGE_ORDERS,MICROSOFT_CLIENT_ID,LOCAL_JWT_SECRET,CORS_ALLOWED_ORIGIN
+          script: |
+            set -euo pipefail
+            mkdir -p /opt/pedidos360/backend
+            rm -rf /opt/pedidos360/backend/k8s
+            cp -r /tmp/pedidos360-backend/k8s /opt/pedidos360/backend/k8s
+            cp /tmp/pedidos360-backend/deploy/scripts/deploy-k8s.sh /opt/pedidos360/backend/
+            chmod +x /opt/pedidos360/backend/deploy-k8s.sh
+            /opt/pedidos360/backend/deploy-k8s.sh /opt/pedidos360/backend/k8s
+        env:
+          IMAGE_AUTH: ${{ vars.ECR_REGISTRY }}/pedidos360/auth:${{ needs.meta.outputs.tag }}
+          IMAGE_INVENTORY: ${{ vars.ECR_REGISTRY }}/pedidos360/inventory:${{ needs.meta.outputs.tag }}
+          IMAGE_ORDERS: ${{ vars.ECR_REGISTRY }}/pedidos360/orders:${{ needs.meta.outputs.tag }}
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+          LOCAL_JWT_SECRET: ${{ secrets.LOCAL_JWT_SECRET }}
+          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}

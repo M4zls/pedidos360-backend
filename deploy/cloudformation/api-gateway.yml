@@ -1,0 +1,238 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Pedidos360 - AWS API Gateway (HTTP API) que enruta /api/* hacia la EC2 backend.
+  Rutas GET/POST/PUT/DELETE por prefijo de servicio, integraciones HTTP proxy
+  hacia la IP publica del backend. El navegador nunca llega directo a esta API:
+  nginx del front reenvia /api/* conservando el path completo.
+
+Parameters:
+  BackendPublicIp:
+    Type: String
+    Description: IP publica (Elastic IP) de la EC2 backend.
+
+Resources:
+  # ────────────────────────────────────────────────────────────
+  # API + stage por defecto (sin prefijo de stage en la URL)
+  # ────────────────────────────────────────────────────────────
+  Api:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: pedidos360-api
+      ProtocolType: HTTP
+      Description: Api de Pedidos360 (auth, inventory, orders)
+      DisableExecuteApiEndpoint: false
+      # CORS activo como red de seguridad aunque el navegador hable
+      # con el mismo origen via nginx (no dispara preflight).
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+        AllowHeaders:
+          - "*"
+        ExposeHeaders:
+          - "Content-Type"
+          - "Authorization"
+
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref Api
+      StageName: $default
+      AutoDeploy: true
+
+  # ────────────────────────────────────────────────────────────
+  # AUTH  (:8080)  ->  /api/auth/{proxy+}
+  # ────────────────────────────────────────────────────────────
+  AuthIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      Description: auth-service (login local + Microsoft)
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      IntegrationUri: !Sub "http://${BackendPublicIp}:8080/api/auth/{proxy}"
+      PayloadFormatVersion: "1.0"
+
+  AuthGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "GET /api/auth/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AuthIntegration]]
+
+  AuthPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "POST /api/auth/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AuthIntegration]]
+
+  AuthPutRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "PUT /api/auth/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AuthIntegration]]
+
+  AuthDeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "DELETE /api/auth/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AuthIntegration]]
+
+  # ────────────────────────────────────────────────────────────
+  # ADMIN (:8080)  ->  /api/admin/{proxy+}  (gestion de roles)
+  # ────────────────────────────────────────────────────────────
+  AdminIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      Description: auth-service (admin users)
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      IntegrationUri: !Sub "http://${BackendPublicIp}:8080/api/admin/{proxy}"
+      PayloadFormatVersion: "1.0"
+
+  AdminGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "GET /api/admin/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AdminIntegration]]
+
+  AdminPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "POST /api/admin/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AdminIntegration]]
+
+  AdminPutRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "PUT /api/admin/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AdminIntegration]]
+
+  AdminDeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "DELETE /api/admin/{proxy+}"
+      Target: !Join ["integrations/", [!Ref AdminIntegration]]
+
+  # ────────────────────────────────────────────────────────────
+  # ME    (:8080)  ->  GET /api/me   (ruta exacta)
+  # ────────────────────────────────────────────────────────────
+  MeIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      Description: auth-service (cuenta actual)
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Sub "http://${BackendPublicIp}:8080/api/me"
+      PayloadFormatVersion: "1.0"
+
+  MeRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "GET /api/me"
+      Target: !Join ["integrations/", [!Ref MeIntegration]]
+
+  # ────────────────────────────────────────────────────────────
+  # INVENTORY (:8083)  ->  /api/inventory/{proxy+}
+  # ────────────────────────────────────────────────────────────
+  InventoryIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      Description: inventory-service (productos y stock)
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      IntegrationUri: !Sub "http://${BackendPublicIp}:8083/api/inventory/{proxy}"
+      PayloadFormatVersion: "1.0"
+
+  InventoryGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "GET /api/inventory/{proxy+}"
+      Target: !Join ["integrations/", [!Ref InventoryIntegration]]
+
+  InventoryPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "POST /api/inventory/{proxy+}"
+      Target: !Join ["integrations/", [!Ref InventoryIntegration]]
+
+  InventoryPutRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "PUT /api/inventory/{proxy+}"
+      Target: !Join ["integrations/", [!Ref InventoryIntegration]]
+
+  InventoryDeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "DELETE /api/inventory/{proxy+}"
+      Target: !Join ["integrations/", [!Ref InventoryIntegration]]
+
+  # ────────────────────────────────────────────────────────────
+  # ORDERS (:8081)  ->  /api/orders/{proxy+}
+  # ────────────────────────────────────────────────────────────
+  OrdersIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      Description: orders-service (pedidos)
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      IntegrationUri: !Sub "http://${BackendPublicIp}:8081/api/orders/{proxy}"
+      PayloadFormatVersion: "1.0"
+
+  OrdersGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "GET /api/orders/{proxy+}"
+      Target: !Join ["integrations/", [!Ref OrdersIntegration]]
+
+  OrdersPostRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "POST /api/orders/{proxy+}"
+      Target: !Join ["integrations/", [!Ref OrdersIntegration]]
+
+  OrdersPutRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "PUT /api/orders/{proxy+}"
+      Target: !Join ["integrations/", [!Ref OrdersIntegration]]
+
+  OrdersDeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: "DELETE /api/orders/{proxy+}"
+      Target: !Join ["integrations/", [!Ref OrdersIntegration]]
+
+Outputs:
+  ApiGatewayUrl:
+    Description: URL base del API Gateway (nginx del front la reenvia).
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com"
+
+  ApiGatewayId:
+    Description: Identificador del HTTP API.
+    Value: !Ref Api

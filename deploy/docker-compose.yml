@@ -1,0 +1,59 @@
+name: pedidos360-backend
+
+services:
+  auth:
+    build: ../auth-service
+    container_name: pedidos360-auth
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:sqlite:/data/pedidos360-auth.db
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      LOCAL_JWT_SECRET: ${LOCAL_JWT_SECRET}
+    volumes:
+      - auth-data:/data
+    networks:
+      - pedidos360
+
+  inventory:
+    build: ../inventory-service
+    container_name: pedidos360-inventory
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      DB_URL: jdbc:sqlite:/data/pedidos360-inventory.db
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      LOCAL_JWT_SECRET: ${LOCAL_JWT_SECRET}
+    volumes:
+      - inventory-data:/data
+    networks:
+      - pedidos360
+
+  orders:
+    build: ../orders-service
+    container_name: pedidos360-orders
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      DB_URL: jdbc:sqlite:/data/pedidos360-orders.db
+      INVENTORY_BASE_URL: http://inventory:8083
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      LOCAL_JWT_SECRET: ${LOCAL_JWT_SECRET}
+    volumes:
+      - orders-data:/data
+    networks:
+      - pedidos360
+
+volumes:
+  auth-data:
+  inventory-data:
+  orders-data:
+
+networks:
+  pedidos360:
+    driver: bridge

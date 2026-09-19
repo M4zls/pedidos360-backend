@@ -1,0 +1,9 @@
+# ─────────────────────────────────────────────────────────────
+#  Namespace compartido por backend y front.
+#  Lo aplican los dos pipelines (es idempotente), asi que ninguno
+#  de los dos repos depende de que el otro haya corrido primero.
+# ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pedidos360
