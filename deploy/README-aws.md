@@ -11,7 +11,7 @@ gitflow ─ GH Actions ┤
                                                                          │
 navegador ──:80──→ EC2 (Elastic IP) ──→ Traefik Ingress ─────────────────┤
                                           ├─ /                → front    │
-                                          ├─ /api/auth|admin|me → auth   │ k3s
+                                          ├─ /api/me          → auth     │ k3s
                                           ├─ /api/inventory   → inventory│
                                           └─ /api/orders      → orders   ┘
 ```
