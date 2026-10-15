@@ -9,9 +9,10 @@ Proceso y base propios (`pedidos360-inventory.db`, SQLite). Puerto **8083**.
   [`../auth-service`](../auth-service) (unico proveedor de login), de forma
   independiente — no llama al servicio de auth. Config en `app.auth.*`, tiene
   que coincidir.
-- **Roles**: siempre por email con `app.roles.*` (copia de la config de
-  auth-service). Leer el catálogo requiere sesión; alta/edición/baja/movimientos
-  requieren ADMIN u OPERADOR.
+- **Roles**: del claim `roles` del JWT (App Roles asignadas en Azure — ver
+  `auth-service/README.md`); sin App Role reconocida, se rechaza el login.
+  Leer el catálogo requiere sesión; alta/edición/baja/movimientos requieren
+  ADMIN u OPERADOR.
 - **Pedidos**: [`orders-service`](../orders-service) le consulta productos por
   HTTP para validar y congelar precios. Este servicio no sabe nada de pedidos.
 
@@ -58,5 +59,5 @@ la siembra con la carta de ejemplo (`InventoryDataInitializer`, con
 `imageUrl`). Para regenerarla, borrá ese archivo.
 
 Config (`src/main/resources/application.yml`, todo overrideable por env):
-`SERVER_PORT`, `DB_URL`, `MICROSOFT_CLIENT_ID`, `CORS_ALLOWED_ORIGIN`,
-`app.roles.*`.
+`SERVER_PORT`, `DB_URL`, `MICROSOFT_CLIENT_ID`, `CORS_ALLOWED_ORIGIN`. Los
+roles no se configuran acá (vienen del claim `roles` del token).

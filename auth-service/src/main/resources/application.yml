@@ -22,23 +22,13 @@ spring:
       mode: never
 
 app:
-  # --- Roles por email ---
-  # El rol (ADMIN / OPERADOR / CLIENTE) se asigna por direccion de correo,
-  # segun las cuentas reales del tenant Entra External ID (CIAM)
-  # proyecto3602.onmicrosoft.com. Los emails que no figuren aca quedan como
-  # CLIENTE al primer login (ej. raul.perez@proyecto3602.onmicrosoft.com,
-  # que arma pedidos desde la carta). El rol queda FIJO por email: no hay
-  # forma de cambiarlo desde la UI, y se resincroniza en cada login
-  # (UserDirectory.resolve) por si esta lista cambia. inventory-service y
-  # orders-service tienen una COPIA de esta misma lista (para resolver el rol
-  # de tokens de Microsoft sin depender de esta base) — si la cambiás,
-  # actualizalas ahí también.
-  roles:
-    admins:
-      - pedro.porro@proyecto3602.onmicrosoft.com
-    operadores:
-      - juanfaure@proyecto3602.onmicrosoft.com
-      # raul.perez@proyecto3602.onmicrosoft.com queda como CLIENTE (no listado)
+  # --- Roles ---
+  # El rol (ADMIN / OPERADOR / CLIENTE) sale del claim "roles" del JWT de
+  # Microsoft: son las App Roles asignadas en el Portal de Azure (App
+  # Registration -> App roles, y Enterprise Application -> Users and groups).
+  # Si una cuenta no tiene ninguna App Role reconocida asignada, el login se
+  # RECHAZA (ver RoleJwtAuthenticationConverter) — no hay rol por defecto ni
+  # lista de emails en este archivo.
   auth:
     microsoft:
       # "Application (client) ID" del App Registration en Azure AD.

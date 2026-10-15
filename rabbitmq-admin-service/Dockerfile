@@ -1,0 +1,26 @@
+# ─────────────────────────────────────────────────────────────
+#  Pedidos360 — Administrador de RabbitMQ (Spring Boot 4 / Java 21)
+#  Build multi-stage: compila con Maven y corre sobre un JRE liviano.
+# ─────────────────────────────────────────────────────────────
+
+# --- Stage 1: build ---
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /app
+COPY pom.xml .
+RUN mvn -q dependency:go-offline
+COPY src ./src
+RUN mvn -q clean package -DskipTests
+
+# --- Stage 2: runtime ---
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S app && adduser -S app -G app
+
+COPY --from=build /app/target/*.jar app.jar
+
+USER app
+EXPOSE 8084
+# -Djava.net.preferIPv4Stack=true: sin esto, la JVM intenta conectar por el
+# AAAA que devuelve el DNS de Microsoft y falla con "Network unreachable"
+# (la red de Docker aca no tiene ruta IPv6).
+ENTRYPOINT ["java", "-Djava.net.preferIPv4Stack=true", "-jar", "app.jar"]

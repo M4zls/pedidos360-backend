@@ -11,8 +11,8 @@ Pedido = cliente + líneas (producto, cantidad, precio congelado) + estado:
 - **Auth**: valida los mismos Bearer tokens de Microsoft que
   [`../auth-service`](../auth-service) (unico proveedor de login), de forma
   independiente. Config en `app.auth.*` — tiene que coincidir.
-- **Roles**: siempre por email con `app.roles.*` (copia de la config de
-  auth-service).
+- **Roles**: del claim `roles` del JWT (App Roles asignadas en Azure — ver
+  `auth-service/README.md`); sin App Role reconocida, se rechaza el login.
 - **Inventario**: NO comparte base ni repositorios con
   [`../inventory-service`](../inventory-service). Para validar productos y
   congelar precios llama por HTTP a `GET {inventory.base-url}/api/inventory/products/{id}`

@@ -17,17 +17,23 @@ spring:
   sql:
     init:
       mode: never
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        default-requeue-rejected: false
 
 app:
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
-  # --- Roles por email (resuelve el rol de los tokens de Microsoft) ---
-  # Debe coincidir con la config del servicio de auth.
-  roles:
-    admins:
-      - pedro.porro@proyecto3602.onmicrosoft.com
-    operadores:
-      - juanfaure@proyecto3602.onmicrosoft.com
+  # El rol (ADMIN/OPERADOR/CLIENTE) sale del claim "roles" del JWT de
+  # Microsoft (App Roles asignadas en Azure). Sin App Role reconocida, se
+  # rechaza el login — ver RoleJwtAuthenticationConverter.
   auth:
     microsoft:
       # Mismo "Application (client) ID" que el servicio de auth y el front.

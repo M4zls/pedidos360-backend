@@ -1,6 +1,5 @@
 package com.pedidos360.identity.service;
 
-import com.pedidos360.identity.config.RolesProperties;
 import com.pedidos360.identity.domain.AppUser;
 import com.pedidos360.identity.domain.Role;
 import com.pedidos360.identity.repository.AppUserRepository;
@@ -10,39 +9,36 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * Fuente de verdad de "que rol tiene este email". Se consulta en cada request
- * al convertir el JWT en authorities. El rol es fijo por email (ver
- * {@code app.roles} en application.yml): no hay forma de cambiarlo en runtime.
+ * Guarda el usuario (nombre, consentimiento) y mantiene una copia local del
+ * rol que trae el token en cada login. El rol en si lo decide Azure (App
+ * Roles): esta clase no lo calcula, solo lo persiste para poder mostrarlo
+ * (ej. en /api/me) sin volver a parsear el JWT.
  */
 @Service
 @Transactional
 public class UserDirectory {
 
     private final AppUserRepository users;
-    private final RolesProperties rolesConfig;
 
-    public UserDirectory(AppUserRepository users, RolesProperties rolesConfig) {
+    public UserDirectory(AppUserRepository users) {
         this.users = users;
-        this.rolesConfig = rolesConfig;
     }
 
     /**
      * Devuelve el usuario para ese email, creandolo la primera vez con el rol
-     * que indique la config (o CLIENTE). Si ya existe: actualiza el nombre si
-     * cambio, y RESINCRONIZA el rol contra {@code app.roles} — asi, si se
-     * agrega/saca un email de esas listas, el cambio se aplica en el proximo
-     * login sin quedar pegado al rol con el que se creo la fila la primera vez.
+     * que trae el token en este login. Si ya existe: actualiza el nombre si
+     * cambio, y RESINCRONIZA el rol contra el que trae el token ahora — asi,
+     * si cambia la App Role asignada en Azure, se aplica en el proximo login.
      */
-    public AppUser resolve(String email, String name) {
+    public AppUser resolve(String email, String name, Role role) {
         String normalized = normalize(email);
-        Role expectedRole = rolesConfig.roleFor(normalized);
         AppUser user = users.findByEmailIgnoreCase(normalized)
-                .orElseGet(() -> users.save(new AppUser(normalized, name, expectedRole)));
+                .orElseGet(() -> users.save(new AppUser(normalized, name, role)));
         if (StringUtils.hasText(name) && !name.equals(user.getName())) {
             user.setName(name);
         }
-        if (user.getRole() != expectedRole) {
-            user.syncRole(expectedRole);
+        if (user.getRole() != role) {
+            user.syncRole(role);
         }
         return user;
     }

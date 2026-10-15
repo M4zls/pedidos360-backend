@@ -24,4 +24,7 @@ VOLUME ["/data"]
 
 USER app
 EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# -Djava.net.preferIPv4Stack=true: sin esto, la JVM intenta conectar por el
+# AAAA que devuelve el DNS de Microsoft y falla con "Network unreachable"
+# (la red de Docker aca no tiene ruta IPv6).
+ENTRYPOINT ["java", "-Djava.net.preferIPv4Stack=true", "-jar", "app.jar"]

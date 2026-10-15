@@ -1,11 +1,13 @@
 package com.pedidos360.identity.domain;
 
 /**
- * Roles de la aplicacion. El rol se asigna por email (ver
- * {@code app.roles} en application.yml y {@link com.pedidos360.identity.service.UserDirectory}).
+ * Roles de la aplicacion. El rol sale del claim {@code roles} del JWT de
+ * Microsoft (App Role asignada en Azure Portal — ver
+ * {@link com.pedidos360.identity.security.RoleJwtAuthenticationConverter}
+ * y {@link com.pedidos360.identity.service.UserDirectory}).
  *
  * <ul>
- *   <li>{@code ADMIN}    - gestiona todo, incluidos los roles de otros usuarios.</li>
+ *   <li>{@code ADMIN}    - gestiona todo: inventario, pedidos, cocina, despacho y ventas.</li>
  *   <li>{@code OPERADOR} - gestiona inventario y estados de pedidos.</li>
  *   <li>{@code CLIENTE}  - navega el catalogo y hace/ve sus propios pedidos.</li>
  * </ul>

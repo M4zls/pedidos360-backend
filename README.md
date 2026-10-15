@@ -17,9 +17,10 @@ detalle de endpoints y configuración.
 
 Los tres validan **el mismo Bearer token de Microsoft** (unico proveedor de
 login), cada uno de forma independiente — no hay un servicio central de
-autorización. El rol de cada request se resuelve por email contra una copia
-de `app.roles` en cada `application.yml`. Por eso, si cambiás `app.roles` o
-`app.auth.microsoft.client-id`, hay que actualizarlo en **los tres**.
+autorización. El rol de cada request sale del claim `roles` del token (App
+Roles asignadas en Azure Portal — ver `auth-service/README.md`), no de
+configuración propia: si cambiás `app.auth.microsoft.client-id`, hay que
+actualizarlo en **los tres**, pero los roles no se tocan acá.
 
 El tenant de Microsoft (`proyecto3602.onmicrosoft.com`) es un tenant **Entra
 External ID (CIAM)**, no Entra ID "workforce" clásico: cada servicio valida el
@@ -47,13 +48,14 @@ más el front.
 
 ## Cuentas
 
-El rol es fijo por email (`app.roles`, copiado en los tres `application.yml`)
-— no hay endpoint para cambiarlo en runtime.
+El rol sale de la **App Role asignada en Azure** (Enterprise Application →
+Users and groups) — sin App Role asignada, el login se rechaza.
 
 | Login                                                   | Rol      |
 | -------------------------------------------------------- | -------- |
 | Microsoft — pedro.porro@proyecto3602.onmicrosoft.com      | ADMIN    |
 | Microsoft — juanfaure@proyecto3602.onmicrosoft.com        | OPERADOR |
-| Microsoft — cualquier otra cuenta del tenant              | CLIENTE  |
+| Microsoft — raul.perez@proyecto3602.onmicrosoft.com       | CLIENTE  |
 
-Detalle completo en [`auth-service/README.md`](auth-service/README.md).
+Detalle completo (cómo crear y asignar las App Roles) en
+[`auth-service/README.md`](auth-service/README.md).

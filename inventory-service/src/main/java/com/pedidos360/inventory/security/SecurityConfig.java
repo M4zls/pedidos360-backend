@@ -32,12 +32,6 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origin:http://localhost:4200}")
     private String allowedOrigin;
 
-    private final RolesProperties rolesConfig;
-
-    public SecurityConfig(RolesProperties rolesConfig) {
-        this.rolesConfig = rolesConfig;
-    }
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -51,7 +45,7 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2.authenticationManagerResolver(
                         new MultiIssuerAuthenticationManagerResolver(
                                 microsoftClientId,
-                                new RoleJwtAuthenticationConverter(rolesConfig))));
+                                new RoleJwtAuthenticationConverter())));
         return http.build();
     }
 

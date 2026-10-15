@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.pedidos360.identity.domain.AppUser;
+import com.pedidos360.identity.domain.Role;
 import com.pedidos360.identity.security.RoleJwtAuthenticationConverter;
 import com.pedidos360.identity.service.UserDirectory;
 
@@ -17,9 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Endpoint protegido de prueba: devuelve los datos del usuario autenticado
- * con Microsoft (unico proveedor de login). Incluye `roles` (resuelto por
- * email, ver {@link UserDirectory}) que el frontend usa para mostrar u
- * ocultar secciones.
+ * con Microsoft (unico proveedor de login). Incluye `roles` (la App Role de
+ * Azure asignada a la cuenta) que el frontend usa para mostrar u ocultar
+ * secciones.
  */
 @RestController
 public class MeController {
@@ -40,9 +41,11 @@ public class MeController {
         user.put("email", email);
         user.put("provider", "microsoft");
 
-        // Se resuelve siempre para poder devolver el rol (fijo por email, ver
-        // app.roles) y el estado de consentimiento de datos guardado en AppUser.
-        AppUser appUser = users.resolve(email, jwt.getClaimAsString("name"));
+        // El converter ya exigio una App Role reconocida para llegar hasta aca
+        // (ver RoleJwtAuthenticationConverter), asi que siempre hay una.
+        Role role = RoleJwtAuthenticationConverter.roleFromClaim(jwt)
+                .orElseThrow(() -> new IllegalStateException("Token autenticado sin rol"));
+        AppUser appUser = users.resolve(email, jwt.getClaimAsString("name"), role);
         user.put("roles", List.of(appUser.getRole().name()));
         user.put("consentGiven", appUser.isConsentGiven());
 

@@ -1,5 +1,6 @@
 package com.pedidos360.inventory.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.pedidos360.inventory.domain.MovementType;
@@ -51,6 +52,30 @@ public class InventoryService {
         StockAlert alert = alerts.findById(alertId)
                 .orElseThrow(() -> new IllegalArgumentException("Alerta no encontrada: " + alertId));
         alert.markRead();
+    }
+
+    public record OrderLineQuantity(Long productId, int quantity) {}
+
+    /**
+     * Descuenta el stock reservado por un pedido (una linea = un producto).
+     * Primero valida que haya stock suficiente para TODAS las lineas antes de
+     * tocar nada: si alguna no alcanza, no se aplica ningun movimiento (asi un
+     * reintento del mensaje no deja el stock descontado a medias).
+     */
+    public void reserveStockForOrder(Long orderId, List<OrderLineQuantity> lines) {
+        List<Product> locked = new ArrayList<>(lines.size());
+        for (OrderLineQuantity line : lines) {
+            Product product = products.findById(line.productId())
+                    .orElseThrow(() -> new ProductNotFoundException(line.productId()));
+            if (line.quantity() > product.getStock()) {
+                throw new InsufficientStockException(product.getSku(), product.getStock(), line.quantity());
+            }
+            locked.add(product);
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            registerMovement(locked.get(i).getId(), MovementType.OUT, lines.get(i).quantity(),
+                    "Reserva automatica por pedido #" + orderId, "rabbitmq-consumer");
+        }
     }
 
     public StockMovement registerMovement(Long productId, MovementType type, int quantity,

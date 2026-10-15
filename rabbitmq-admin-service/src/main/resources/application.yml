@@ -1,0 +1,23 @@
+server:
+  port: ${SERVER_PORT:8084}
+
+spring:
+  application:
+    name: pedidos360-rabbitmq-admin
+
+app:
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
+  auth:
+    microsoft:
+      client-id: ${MICROSOFT_CLIENT_ID:7b48efc0-534c-4b13-9e02-4c60a129f151}
+  # Configuracion centralizada del acceso a la Management HTTP API de RabbitMQ.
+  # Este servicio administra topologia (colas/exchanges/bindings), no publica
+  # ni consume mensajes de negocio.
+  rabbitmq:
+    management:
+      host: ${RABBITMQ_MANAGEMENT_HOST:localhost}
+      port: ${RABBITMQ_MANAGEMENT_PORT:15672}
+      username: ${RABBITMQ_MANAGEMENT_USERNAME:guest}
+      password: ${RABBITMQ_MANAGEMENT_PASSWORD:guest}
+      vhost: ${RABBITMQ_VHOST:/}

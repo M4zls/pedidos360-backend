@@ -12,6 +12,8 @@ import com.pedidos360.orders.domain.OrderLine;
 import com.pedidos360.orders.domain.OrderNotification;
 import com.pedidos360.orders.domain.OrderStatus;
 import com.pedidos360.orders.domain.OrderStatusChange;
+import com.pedidos360.orders.messaging.usecase.PublishOrderCreatedEvent;
+import com.pedidos360.orders.messaging.usecase.PublishOrderStatusChangedEvent;
 import com.pedidos360.orders.repository.OrderNotificationRepository;
 import com.pedidos360.orders.repository.OrderRepository;
 import com.pedidos360.orders.repository.OrderStatusChangeRepository;
@@ -44,14 +46,20 @@ public class OrderService {
     private final InventoryClient inventory;
     private final OrderStatusChangeRepository statusChanges;
     private final OrderNotificationRepository notifications;
+    private final PublishOrderCreatedEvent publishOrderCreated;
+    private final PublishOrderStatusChangedEvent publishOrderStatusChanged;
 
     public OrderService(OrderRepository orders, InventoryClient inventory,
                         OrderStatusChangeRepository statusChanges,
-                        OrderNotificationRepository notifications) {
+                        OrderNotificationRepository notifications,
+                        PublishOrderCreatedEvent publishOrderCreated,
+                        PublishOrderStatusChangedEvent publishOrderStatusChanged) {
         this.orders = orders;
         this.inventory = inventory;
         this.statusChanges = statusChanges;
         this.notifications = notifications;
+        this.publishOrderCreated = publishOrderCreated;
+        this.publishOrderStatusChanged = publishOrderStatusChanged;
     }
 
     public record LineInput(Long productId, int quantity) {}
@@ -75,7 +83,9 @@ public class OrderService {
                     product.id(), product.sku(), product.name(),
                     product.unitPrice(), line.quantity()));
         }
-        return orders.save(order);
+        CustomerOrder saved = orders.save(order);
+        publishOrderCreated.execute(saved);
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -140,6 +150,7 @@ public class OrderService {
             String message = "Tu pedido #" + order.getId() + " está " + label;
             notifications.save(new OrderNotification(order.getCustomerEmail(), order.getId(), message));
         }
+        publishOrderStatusChanged.execute(order, previous);
     }
 
     @Transactional(readOnly = true)

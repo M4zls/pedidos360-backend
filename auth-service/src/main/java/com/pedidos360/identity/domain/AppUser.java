@@ -16,10 +16,10 @@ import jakarta.persistence.UniqueConstraint;
 
 /**
  * Usuario conocido por la app y su rol. Se crea la primera vez que alguien
- * inicia sesion (auto-provisioning en {@link com.pedidos360.identity.service.UserDirectory}):
- * si el email esta en {@code app.roles} toma ese rol, si no queda como CLIENTE.
- * El rol es fijo por email y se resincroniza contra {@code app.roles} en cada
- * login ({@link #syncRole}) — no hay endpoint para cambiarlo "a mano".
+ * inicia sesion (auto-provisioning en {@link com.pedidos360.identity.service.UserDirectory})
+ * con el rol que traiga el claim {@code roles} del JWT (App Role asignada en
+ * Azure). Se resincroniza en cada login ({@link #syncRole}) por si cambia la
+ * asignacion en Azure — no hay endpoint para cambiarlo "a mano".
  */
 @Entity
 @Table(
@@ -99,9 +99,10 @@ public class AppUser {
     }
 
     /**
-     * Resincroniza el rol contra {@code app.roles} (llamado desde
-     * {@code UserDirectory.resolve} en cada login). No es una API para que
-     * alguien "elija" su rol: si cambia la config, esto lo refleja.
+     * Resincroniza el rol contra el claim {@code roles} del JWT (llamado
+     * desde {@code UserDirectory.resolve} en cada login). No es una API para
+     * que alguien "elija" su rol: si cambia la App Role en Azure, esto lo
+     * refleja.
      */
     public void syncRole(Role role) {
         this.role = role;
