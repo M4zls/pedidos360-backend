@@ -20,6 +20,19 @@ spring:
   sql:
     init:
       mode: never
+  # Conexion al cluster de RabbitMQ (configuracion centralizada: un solo
+  # lugar para host/credenciales, nada de esto se repite en el codigo).
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        # Un mensaje rechazado (nack) no vuelve a la cola: va a su DLQ.
+        default-requeue-rejected: false
 
 app:
   # --- Roles ---

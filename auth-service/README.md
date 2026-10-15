@@ -64,6 +64,30 @@ Backend del proyecto Pedidos360 — repo aparte del frontend
 (`M4zls/pedidos360-frontend`). El `app.auth.microsoft.client-id` de acá y el
 `MICROSOFT_CLIENT_ID` del front **tienen que ser el mismo valor**.
 
+## Mensajería (RabbitMQ)
+
+Cada cambio real de un usuario se publica en el exchange topic `users.topic`
+con routing key `user.<evento>.<rol>`. Un `GET /api/me` sin cambios no publica
+nada (el front lo llama seguido).
+
+| Evento | Cuándo | Ejemplo de routing key |
+| --- | --- | --- |
+| `registered` | primer login de la cuenta | `user.registered.cliente` |
+| `role-changed` | cambió la App Role en Azure (se detecta en el login) | `user.role-changed.admin` |
+| `consent-given` | aceptó la protección de datos | `user.consent-given.operador` |
+
+Colas que consume el propio servicio, cada una con su DLX/DLQ (un mensaje
+inválido o que falla va a la DLQ, no se pierde ni se reintenta en loop):
+
+| Cola | Binding | Qué hace | DLX → DLQ |
+| --- | --- | --- | --- |
+| `users.audit` | `user.#` | auditoría de toda la actividad de usuarios | `users.audit.dlx` → `users.audit.dlq` |
+| `users.admin-alerts` | `user.*.admin` | alerta cuando una cuenta entra o asciende a ADMIN | `users.admin-alerts.dlx` → `users.admin-alerts.dlq` |
+
+Los eventos salen después del commit (`UserEventRelay`), así nunca se publica
+un alta que no quedó guardada. Si RabbitMQ está caído se loguea el error y el
+login sigue funcionando.
+
 ## Ejecutar
 
 ```bash
