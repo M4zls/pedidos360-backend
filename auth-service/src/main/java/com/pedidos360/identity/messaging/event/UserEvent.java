@@ -19,4 +19,8 @@ public record UserEvent(
         @NotBlank String role,
         String previousRole,
         @NotNull Instant occurredAt) {
+
+    public static final String USER_REGISTERED = "registered";
+    public static final String USER_ROLE_CHANGED = "role-changed";
+    public static final String USER_CONSENT_GIVEN = "consent-given";
 }

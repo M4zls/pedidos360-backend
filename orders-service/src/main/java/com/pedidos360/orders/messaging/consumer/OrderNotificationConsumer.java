@@ -14,8 +14,6 @@ import org.springframework.stereotype.Component;
 
 import com.pedidos360.orders.messaging.event.OrderStatusChangedEvent;
 
-import static com.pedidos360.orders.messaging.RabbitTopology.ORDERS_NOTIFICATIONS_QUEUE;
-
 /**
  * Consume {@code orders.notifications}: simula el aviso al cliente de que su
  * pedido cambio de estado (en este alcance, solo lo deja en el log; mas
@@ -34,7 +32,7 @@ public class OrderNotificationConsumer {
         this.validator = validator;
     }
 
-    @RabbitListener(queues = ORDERS_NOTIFICATIONS_QUEUE)
+    @RabbitListener(queues = "${app.rabbitmq.queues.orders-notifications.name}")
     public void onMessage(@Payload OrderStatusChangedEvent event, Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
         try {

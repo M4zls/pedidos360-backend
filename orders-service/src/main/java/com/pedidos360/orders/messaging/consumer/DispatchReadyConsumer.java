@@ -14,8 +14,6 @@ import org.springframework.stereotype.Component;
 
 import com.pedidos360.orders.messaging.event.OrderStatusChangedEvent;
 
-import static com.pedidos360.orders.messaging.RabbitTopology.DISPATCH_READY_QUEUE;
-
 /**
  * Consume {@code dispatch.ready}: avisa que un pedido quedo LISTO para que
  * despacho lo retire. Clase separada del productor y de
@@ -32,7 +30,7 @@ public class DispatchReadyConsumer {
         this.validator = validator;
     }
 
-    @RabbitListener(queues = DISPATCH_READY_QUEUE)
+    @RabbitListener(queues = "${app.rabbitmq.queues.dispatch-ready.name}")
     public void onMessage(@Payload OrderStatusChangedEvent event, Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
         try {

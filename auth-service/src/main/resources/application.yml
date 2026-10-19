@@ -35,6 +35,29 @@ spring:
         default-requeue-rejected: false
 
 app:
+  # --- Topologia de RabbitMQ ---
+  # Configuracion centralizada: nombres de exchanges, colas con su DLX/DLQ y
+  # routing keys. Se leen con RabbitTopologyProperties; el codigo nunca usa un
+  # literal suelto.
+  rabbitmq:
+    exchanges:
+      users-topic: users.topic
+    routing-keys:
+      # Evento de usuario -> "user.<evento>.<rol>" (ej. user.registered.admin).
+      user-prefix: "user."
+    queues:
+      audit:
+        name: users.audit
+        dlx: users.audit.dlx
+        dlq: users.audit.dlq
+        # Todos los eventos de usuarios.
+        binding-key: "user.#"
+      admin-alerts:
+        name: users.admin-alerts
+        dlx: users.admin-alerts.dlx
+        dlq: users.admin-alerts.dlq
+        # Solo cuando el rol resultante es ADMIN.
+        binding-key: "user.*.admin"
   # --- Roles ---
   # El rol (ADMIN / OPERADOR / CLIENTE) sale del claim "roles" del JWT de
   # Microsoft: son las App Roles asignadas en el Portal de Azure (App

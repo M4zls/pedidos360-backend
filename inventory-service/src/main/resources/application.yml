@@ -29,6 +29,20 @@ spring:
         default-requeue-rejected: false
 
 app:
+  # Topologia de RabbitMQ (configuracion centralizada): nombres de exchanges,
+  # colas con su DLX/DLQ y routing keys. Se leen con RabbitTopologyProperties;
+  # el codigo nunca usa un literal suelto.
+  rabbitmq:
+    exchanges:
+      # Lo produce orders-service; tiene que coincidir con su application.yml.
+      orders-direct: orders.direct
+    routing-keys:
+      order-created: order.created
+    queues:
+      stock-reserve:
+        name: inventory.stock-reserve
+        dlx: inventory.stock-reserve.dlx
+        dlq: inventory.stock-reserve.dlq
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
   # El rol (ADMIN/OPERADOR/CLIENTE) sale del claim "roles" del JWT de

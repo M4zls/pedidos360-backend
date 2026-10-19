@@ -14,8 +14,6 @@ import org.springframework.stereotype.Component;
 
 import com.pedidos360.identity.messaging.event.UserEvent;
 
-import static com.pedidos360.identity.messaging.RabbitTopology.USERS_AUDIT_QUEUE;
-
 /**
  * Consume {@code users.audit}: deja registro de toda la actividad de usuarios
  * (altas, cambios de rol, consentimientos). En este alcance va al log; mas
@@ -32,7 +30,7 @@ public class UserAuditConsumer {
         this.validator = validator;
     }
 
-    @RabbitListener(queues = USERS_AUDIT_QUEUE)
+    @RabbitListener(queues = "${app.rabbitmq.queues.audit.name}")
     public void onMessage(@Payload UserEvent event, Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
         try {

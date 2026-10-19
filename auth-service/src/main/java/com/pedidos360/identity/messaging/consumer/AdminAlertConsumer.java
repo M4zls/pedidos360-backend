@@ -15,8 +15,6 @@ import org.springframework.stereotype.Component;
 import com.pedidos360.identity.domain.Role;
 import com.pedidos360.identity.messaging.event.UserEvent;
 
-import static com.pedidos360.identity.messaging.RabbitTopology.USERS_ADMIN_ALERTS_QUEUE;
-
 /**
  * Consume {@code users.admin-alerts}: avisa cuando una cuenta entra o asciende
  * a ADMIN (el binding {@code user.*.admin} ya filtra). Es el evento sensible
@@ -33,7 +31,7 @@ public class AdminAlertConsumer {
         this.validator = validator;
     }
 
-    @RabbitListener(queues = USERS_ADMIN_ALERTS_QUEUE)
+    @RabbitListener(queues = "${app.rabbitmq.queues.admin-alerts.name}")
     public void onMessage(@Payload UserEvent event, Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
         try {

@@ -36,6 +36,27 @@ inventory:
   base-url: ${INVENTORY_BASE_URL:http://localhost:8083}
 
 app:
+  # Topologia de RabbitMQ (configuracion centralizada): nombres de exchanges,
+  # colas con su DLX/DLQ y routing keys. Se leen con RabbitTopologyProperties;
+  # el codigo nunca usa un literal suelto.
+  rabbitmq:
+    exchanges:
+      orders-direct: orders.direct
+      orders-status-topic: orders.status.topic
+    routing-keys:
+      # inventory-service escucha esta misma key en orders.direct.
+      order-created: order.created
+      # Cambio de estado -> "order.status.<estado>" (ej. order.status.listo).
+      order-status-prefix: "order.status."
+    queues:
+      orders-notifications:
+        name: orders.notifications
+        dlx: orders.notifications.dlx
+        dlq: orders.notifications.dlq
+      dispatch-ready:
+        name: dispatch.ready
+        dlx: dispatch.ready.dlx
+        dlq: dispatch.ready.dlq
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
   # El rol (ADMIN/OPERADOR/CLIENTE) sale del claim "roles" del JWT de

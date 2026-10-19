@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import static com.pedidos360.identity.messaging.RabbitTopology.*;
+import static com.pedidos360.identity.messaging.event.UserEvent.*;
 
 /**
  * Guarda el usuario (nombre, consentimiento) y mantiene una copia local del

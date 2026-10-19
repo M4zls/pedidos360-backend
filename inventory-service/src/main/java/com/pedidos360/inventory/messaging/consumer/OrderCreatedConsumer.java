@@ -15,8 +15,6 @@ import org.springframework.stereotype.Component;
 import com.pedidos360.inventory.messaging.event.OrderCreatedEvent;
 import com.pedidos360.inventory.messaging.usecase.ReserveStockForOrder;
 
-import static com.pedidos360.inventory.messaging.RabbitTopology.INVENTORY_STOCK_RESERVE_QUEUE;
-
 /**
  * Consume {@code inventory.stock-reserve}: cada pedido nuevo descuenta su
  * stock. Clase separada del caso de uso de negocio ({@link ReserveStockForOrder}):
@@ -36,7 +34,7 @@ public class OrderCreatedConsumer {
         this.reserveStockForOrder = reserveStockForOrder;
     }
 
-    @RabbitListener(queues = INVENTORY_STOCK_RESERVE_QUEUE)
+    @RabbitListener(queues = "${app.rabbitmq.queues.stock-reserve.name}")
     public void onMessage(@Payload OrderCreatedEvent event, Channel channel,
             @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
         try {
