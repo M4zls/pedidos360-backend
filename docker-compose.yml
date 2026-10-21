@@ -4,13 +4,18 @@
 #  Sin gateway intermedio: cada servicio valida su propio JWT de
 #  Microsoft (MultiIssuerAuthenticationManagerResolver) y el front
 #  (repo pedidos360-frontend, su propio docker-compose.yml) le pega
-#  directo por path a cada puerto publicado:
-#    /api/me                 ->  auth               (8080)
-#    /api/inventory/*        ->  inventory          (8083)
-#    /api/orders/*           ->  orders             (8082, interno 8081)
-#    /api/admin/rabbitmq/*   ->  rabbitmq-admin      (8084)
+#  directo por path a cada servicio:
+#    /api/me                 ->  auth
+#    /api/inventory/*        ->  inventory
+#    /api/orders/*           ->  orders
+#    /api/admin/rabbitmq/*   ->  rabbitmq-admin
 #
 #    orders  ->  inventory   (consulta el catálogo por HTTP)
+#
+#  La red "pedidos360-net" (declarada abajo) la comparte el compose del
+#  front: asi nginx le pega a cada servicio por nombre (ej. http://auth:8080)
+#  en vez de host.docker.internal, que en Windows a veces resuelve una IP
+#  IPv6 inalcanzable y tira 502 intermitentes.
 #
 #  Uso:
 #    docker compose up --build     # auth en http://localhost:8080
@@ -117,6 +122,10 @@ services:
     ports:
       - "8084:8084"
     restart: unless-stopped
+
+networks:
+  default:
+    name: pedidos360-net
 
 volumes:
   auth-db:
