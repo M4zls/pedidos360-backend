@@ -1,22 +1,19 @@
 # ─────────────────────────────────────────────────────────────
-#  Pedidos360 — backend (servicios, bases, RabbitMQ y gateway WSO2)
+#  Pedidos360 — backend (servicios, bases y RabbitMQ)
 #
-#    apim (WSO2 API Manager: valida JWT y rutea)
-#      ├─ /api/me          ->  auth       (login Microsoft, roles)
-#      ├─ /api/inventory/* ->  inventory  (catálogo, stock)
-#      ├─ /api/orders/*    ->  orders     (pedidos)
-#      └─ /api/admin/rabbitmq/* -> rabbitmq-admin
+#  Sin gateway intermedio: cada servicio valida su propio JWT de
+#  Microsoft (MultiIssuerAuthenticationManagerResolver) y el front
+#  (repo pedidos360-frontend, su propio docker-compose.yml) le pega
+#  directo por path a cada puerto publicado:
+#    /api/me                 ->  auth               (8080)
+#    /api/inventory/*        ->  inventory          (8083)
+#    /api/orders/*           ->  orders             (8082, interno 8081)
+#    /api/admin/rabbitmq/*   ->  rabbitmq-admin      (8084)
 #
 #    orders  ->  inventory   (consulta el catálogo por HTTP)
 #
-#  Ver apim/README.md para el setup del Key Manager y las APIs de WSO2
-#  (se hace con scripts despues de levantar el stack, no es automatico).
-#
-#  El front (repo pedidos360-frontend) tiene su propio docker-compose.yml
-#  y se conecta a este gateway por el puerto publicado 8280.
-#
 #  Uso:
-#    docker compose up --build     # gateway en http://localhost:8280
+#    docker compose up --build     # auth en http://localhost:8080
 #    docker compose down           # parar (las bases persisten)
 #    docker compose down -v        # parar y borrar las bases
 # ─────────────────────────────────────────────────────────────
@@ -31,6 +28,7 @@ services:
       DB_URL: jdbc:sqlite:/data/pedidos360-auth.db
       RABBITMQ_HOST: rabbitmq1
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
+      CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
     volumes:
       - auth-db:/data
     ports:
@@ -120,38 +118,9 @@ services:
       - "8084:8084"
     restart: unless-stopped
 
-  apim:
-    image: wso2/wso2am:4.3.0
-    depends_on:
-      - auth
-      - inventory
-      - orders
-      - rabbitmq-admin
-    ports:
-      - "9443:9443"   # Publisher / DevPortal / Admin Portal (HTTPS)
-      - "8280:8280"   # Gateway (HTTP) - lo usa el front para reenviar /api/*
-      - "8243:8243"   # Gateway (HTTPS)
-    volumes:
-      # El entrypoint de la imagen copia wso2-config-volume sobre la instalacion
-      # al arrancar: asi se aplica nuestro deployment.toml (reenvia Authorization).
-      - ./apim/conf/deployment.toml:/home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml:ro
-      # Base H2 de WSO2 (Key Manager, APIs, revisiones, suscripciones): asi la
-      # configuracion de los scripts de apim/ sobrevive a docker compose down.
-      - apim-db:/home/wso2carbon/wso2am-4.3.0/repository/database
-    # WSO2 tarda ~1-2 min en arrancar; mientras tanto el Gateway responde 404
-    # a todo. "healthy" = el servidor termino de arrancar y el Gateway atiende.
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sfk -o /dev/null https://localhost:9443/services/Version && curl -s -o /dev/null http://localhost:8280/"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 120s
-    restart: unless-stopped
-
 volumes:
   auth-db:
   inventory-db:
   orders-db:
-  apim-db:
   rabbitmq1-data:
   rabbitmq2-data:

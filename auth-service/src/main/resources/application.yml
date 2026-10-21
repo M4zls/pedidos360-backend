@@ -76,3 +76,5 @@ app:
       # App Registration propio (single-tenant, tenant c450c5ae-...,
       # dominio proyecto3602.onmicrosoft.com).
       client-id: ${MICROSOFT_CLIENT_ID:7b48efc0-534c-4b13-9e02-4c60a129f151}
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}

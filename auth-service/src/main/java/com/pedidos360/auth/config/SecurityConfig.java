@@ -36,6 +36,9 @@ public class SecurityConfig {
     @Value("${app.auth.microsoft.client-id}")
     private String microsoftClientId;
 
+    @Value("${app.cors.allowed-origin:http://localhost:4200}")
+    private String allowedOrigin;
+
     private final UserDirectory userDirectory;
 
     public SecurityConfig(UserDirectory userDirectory) {
@@ -69,8 +72,7 @@ public class SecurityConfig {
 
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Origen del frontend Angular (ng serve).
-        configuration.setAllowedOrigins(List.of("http://localhost:4200"));
+        configuration.setAllowedOrigins(List.of(allowedOrigin));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 
