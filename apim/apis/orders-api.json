@@ -1,0 +1,36 @@
+{
+  "_comentario": "Definicion de API para la Publisher REST API de WSO2 (POST /api/am/publisher/v4/apis). Contexto identico al prefijo /api/orders que ya usaba nginx.",
+  "name": "Pedidos360OrdersAPI",
+  "description": "Pedidos, notificaciones y reportes de ventas (orders-service)",
+  "context": "/api/orders",
+  "version": "1.0.0",
+  "provider": "admin",
+  "lifeCycleStatus": "CREATED",
+  "isDefaultVersion": true,
+  "type": "HTTP",
+  "transport": ["http", "https"],
+  "tags": ["pedidos360", "orders"],
+  "policies": ["Unlimited"],
+  "apiThrottlingPolicy": "Unlimited",
+  "authorizationHeader": "Authorization",
+  "securityScheme": ["oauth2"],
+  "visibility": "PUBLIC",
+  "operations": [
+    { "target": "/*", "verb": "GET", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" },
+    { "target": "/*", "verb": "POST", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" },
+    { "target": "/*", "verb": "PATCH", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" }
+  ],
+  "endpointConfig": {
+    "endpoint_type": "http",
+    "sandbox_endpoints": { "url": "http://orders:8081/api/orders" },
+    "production_endpoints": { "url": "http://orders:8081/api/orders" }
+  },
+  "corsConfiguration": {
+    "corsConfigurationEnabled": true,
+    "accessControlAllowOrigins": ["http://localhost:4200"],
+    "accessControlAllowCredentials": false,
+    "accessControlAllowHeaders": ["authorization", "Content-Type", "X-Requested-With"],
+    "accessControlAllowMethods": ["GET", "POST", "PATCH", "OPTIONS"]
+  },
+  "keyManagers": ["MicrosoftEntraExternalID"]
+}

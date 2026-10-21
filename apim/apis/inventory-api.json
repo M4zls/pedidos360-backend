@@ -1,0 +1,38 @@
+{
+  "_comentario": "Definicion de API para la Publisher REST API de WSO2 (POST /api/am/publisher/v4/apis). Contexto identico al prefijo /api/inventory que ya usaba nginx.",
+  "name": "Pedidos360InventoryAPI",
+  "description": "Catalogo de productos, stock y alertas (inventory-service)",
+  "context": "/api/inventory",
+  "version": "1.0.0",
+  "provider": "admin",
+  "lifeCycleStatus": "CREATED",
+  "isDefaultVersion": true,
+  "type": "HTTP",
+  "transport": ["http", "https"],
+  "tags": ["pedidos360", "inventory"],
+  "policies": ["Unlimited"],
+  "apiThrottlingPolicy": "Unlimited",
+  "authorizationHeader": "Authorization",
+  "securityScheme": ["oauth2"],
+  "visibility": "PUBLIC",
+  "operations": [
+    { "target": "/*", "verb": "GET", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" },
+    { "target": "/*", "verb": "POST", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" },
+    { "target": "/*", "verb": "PUT", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" },
+    { "target": "/*", "verb": "PATCH", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" },
+    { "target": "/*", "verb": "DELETE", "authType": "Application & Application User", "throttlingPolicy": "Unlimited" }
+  ],
+  "endpointConfig": {
+    "endpoint_type": "http",
+    "sandbox_endpoints": { "url": "http://inventory:8083/api/inventory" },
+    "production_endpoints": { "url": "http://inventory:8083/api/inventory" }
+  },
+  "corsConfiguration": {
+    "corsConfigurationEnabled": true,
+    "accessControlAllowOrigins": ["http://localhost:4200"],
+    "accessControlAllowCredentials": false,
+    "accessControlAllowHeaders": ["authorization", "Content-Type", "X-Requested-With"],
+    "accessControlAllowMethods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+  },
+  "keyManagers": ["MicrosoftEntraExternalID"]
+}
