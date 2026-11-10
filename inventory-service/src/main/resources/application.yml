@@ -43,6 +43,23 @@ app:
         name: inventory.stock-reserve
         dlx: inventory.stock-reserve.dlx
         dlq: inventory.stock-reserve.dlq
+  # Topologia de Kafka (configuracion centralizada, mismo criterio que
+  # app.rabbitmq de arriba): streaming de analitica/auditoria, en paralelo a
+  # RabbitMQ, sin reemplazar su cola ni su logica transaccional.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094,localhost:9095}
+    topics:
+      # Lo produce este servicio: reservas de stock por pedido.
+      inventory-events:
+        name: inventory.events
+        partitions: 3
+        replication-factor: 2
+        retention-ms: 604800000 # 7 dias
+      # Lo produce orders-service; tiene que coincidir con su application.yml.
+      orders-events:
+        name: orders.events
+    consumer:
+      group-id: inventory-service-analytics
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
   # El rol (ADMIN/OPERADOR/CLIENTE) sale del claim "roles" del JWT de

@@ -1,0 +1,110 @@
+# ─────────────────────────────────────────────────────────────
+#  Pedidos360 — cluster de Kafka (Zookeeper + 2 brokers)
+#
+#  Se suma a la red "pedidos360-net" (la crea docker-compose.yml, hay que
+#  levantarlo primero): orders-service e inventory-service le hablan por
+#  nombre (kafka1:9092, kafka2:9092), igual que con RabbitMQ.
+#
+#  2 brokers, mismo espiritu que el cluster de 2 nodos de RabbitMQ: los
+#  topicos (orders.events, inventory.events) se crean con factor de
+#  replicacion 2, asi sobreviven a que se caiga un solo broker.
+#
+#  Uso:
+#    docker compose -f docker-compose.kafka.yml up -d
+#    docker compose -f docker-compose.kafka.yml down          # las bases persisten
+#    docker compose -f docker-compose.kafka.yml down -v       # y borra los topicos
+# ─────────────────────────────────────────────────────────────
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    hostname: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - pedidos360-net
+    restart: unless-stopped
+
+  kafka1:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: kafka1
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # PLAINTEXT: trafico entre brokers y servicios DENTRO de la red de
+      # Docker. PLAINTEXT_HOST: para hablarle al broker desde el host
+      # (localhost:9094), ej. un cliente Kafka corriendo fuera de Docker.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Replication factor 2 en los topicos internos: coherente con el
+      # cluster de 2 brokers (si fuera 1, un broker caido corta todo).
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      # orders-service / inventory-service declaran sus propios topicos via
+      # KafkaAdmin al arrancar; esto es solo una red de seguridad.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
+    ports:
+      - "9094:9094"
+    networks:
+      - pedidos360-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  kafka2:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: kafka2
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092,PLAINTEXT_HOST://localhost:9095
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka2-data:/var/lib/kafka/data
+    ports:
+      - "9095:9095"
+    networks:
+      - pedidos360-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+networks:
+  pedidos360-net:
+    name: pedidos360-net
+    external: true
+
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka1-data:
+  kafka2-data:

@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────
+#  Pedidos360 — Kafka-UI (administracion visual de brokers y topicos)
+#
+#  Requiere que docker-compose.yml (red "pedidos360-net") y
+#  docker-compose.kafka.yml (brokers) esten levantados antes.
+#
+#  Uso:
+#    docker compose -f docker-compose.kafka-ui.yml up -d   # UI en http://localhost:8089
+#    docker compose -f docker-compose.kafka-ui.yml down
+# ─────────────────────────────────────────────────────────────
+
+services:
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pedidos360
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9092
+    ports:
+      - "8089:8080"
+    networks:
+      - pedidos360-net
+    restart: unless-stopped
+
+networks:
+  pedidos360-net:
+    name: pedidos360-net
+    external: true

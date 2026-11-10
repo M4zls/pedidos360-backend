@@ -1,10 +1,13 @@
 package com.pedidos360.inventory.messaging.usecase;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.pedidos360.inventory.messaging.event.OrderCreatedEvent;
+import com.pedidos360.inventory.messaging.kafka.event.InventoryAnalyticsEvent;
+import com.pedidos360.inventory.messaging.kafka.producer.InventoryEventProducer;
 import com.pedidos360.inventory.service.InventoryService;
 import com.pedidos360.inventory.service.InventoryService.OrderLineQuantity;
 
@@ -18,9 +21,11 @@ import com.pedidos360.inventory.service.InventoryService.OrderLineQuantity;
 public class ReserveStockForOrder {
 
     private final InventoryService inventoryService;
+    private final InventoryEventProducer kafkaProducer;
 
-    public ReserveStockForOrder(InventoryService inventoryService) {
+    public ReserveStockForOrder(InventoryService inventoryService, InventoryEventProducer kafkaProducer) {
         this.inventoryService = inventoryService;
+        this.kafkaProducer = kafkaProducer;
     }
 
     public void execute(OrderCreatedEvent event) {
@@ -28,5 +33,13 @@ public class ReserveStockForOrder {
                 .map(l -> new OrderLineQuantity(l.productId(), l.quantity()))
                 .toList();
         inventoryService.reserveStockForOrder(event.orderId(), lines);
+
+        // Kafka complementa a RabbitMQ (arriba): mismo hecho, stream de
+        // analitica aparte, sin afectar la cola ni este consumidor transaccional.
+        Instant now = Instant.now();
+        for (OrderLineQuantity line : lines) {
+            kafkaProducer.publish(new InventoryAnalyticsEvent(
+                    event.orderId(), line.productId(), "STOCK_RESERVED", line.quantity(), now));
+        }
     }
 }

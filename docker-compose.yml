@@ -9,13 +9,20 @@
 #    /api/inventory/*        ->  inventory
 #    /api/orders/*           ->  orders
 #    /api/admin/rabbitmq/*   ->  rabbitmq-admin
+#    /api/admin/kafka/*      ->  kafka-admin
 #
 #    orders  ->  inventory   (consulta el catálogo por HTTP)
 #
 #  La red "pedidos360-net" (declarada abajo) la comparte el compose del
-#  front: asi nginx le pega a cada servicio por nombre (ej. http://auth:8080)
-#  en vez de host.docker.internal, que en Windows a veces resuelve una IP
-#  IPv6 inalcanzable y tira 502 intermitentes.
+#  front y los de Kafka (docker-compose.kafka.yml, docker-compose.kafka-ui.yml):
+#  asi todo se habla por nombre (ej. http://auth:8080, http://kafka1:9092) en
+#  vez de host.docker.internal, que en Windows a veces resuelve una IP IPv6
+#  inalcanzable y tira 502 intermitentes.
+#
+#  orders e inventory publican a Kafka ademas de RabbitMQ (streaming de
+#  analitica, ver docker-compose.kafka.yml). Si ese stack no esta levantado
+#  todavia, el cliente Kafka solo reintenta en segundo plano: no bloquea el
+#  arranque ni afecta el flujo transaccional de RabbitMQ.
 #
 #  Uso:
 #    docker compose up --build     # auth en http://localhost:8080
@@ -34,6 +41,10 @@ services:
       RABBITMQ_HOST: rabbitmq1
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
+      # JAVA_TOOL_OPTIONS lo lee la JVM sola al arrancar (lo imprime por
+      # stderr: "Picked up..."), no hace falta tocar el ENTRYPOINT. Achica el
+      # heap para que entren mas procesos en instancias chicas (EC2 1GB).
+      JAVA_TOOL_OPTIONS: -Xmx192m
     volumes:
       - auth-db:/data
     ports:
@@ -50,6 +61,7 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
       RABBITMQ_HOST: rabbitmq1
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092
     volumes:
       - inventory-db:/data
     ports:
@@ -69,6 +81,7 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
       RABBITMQ_HOST: rabbitmq1
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092
     volumes:
       - orders-db:/data
     ports:
@@ -121,6 +134,16 @@ services:
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
     ports:
       - "8084:8084"
+    restart: unless-stopped
+
+  kafka-admin:
+    build: ./kafka-admin-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
+      CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
+    ports:
+      - "8085:8085"
     restart: unless-stopped
 
 networks:

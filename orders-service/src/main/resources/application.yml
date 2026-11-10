@@ -57,6 +57,23 @@ app:
         name: dispatch.ready
         dlx: dispatch.ready.dlx
         dlq: dispatch.ready.dlq
+  # Topologia de Kafka (configuracion centralizada, mismo criterio que
+  # app.rabbitmq de arriba): streaming de analitica/auditoria, en paralelo a
+  # RabbitMQ, sin reemplazar sus colas ni su logica transaccional.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094,localhost:9095}
+    topics:
+      # Lo produce este servicio: pedido creado y cada cambio de estado.
+      orders-events:
+        name: orders.events
+        partitions: 3
+        replication-factor: 2
+        retention-ms: 604800000 # 7 dias
+      # Lo produce inventory-service; tiene que coincidir con su application.yml.
+      inventory-events:
+        name: inventory.events
+    consumer:
+      group-id: orders-service-analytics
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:4200}
   # El rol (ADMIN/OPERADOR/CLIENTE) sale del claim "roles" del JWT de

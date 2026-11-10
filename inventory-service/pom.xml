@@ -46,6 +46,18 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
+        <!-- Kafka: eventos de analitica/auditoria, en paralelo a RabbitMQ -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+        <!-- spring-kafka todavia usa el Jackson 2 clasico (JsonSerializer/
+             JsonDeserializer); Spring Boot 4 trae Jackson 3 por defecto, asi
+             que esta hay que agregarla a mano (version la fija el BOM). -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
 
         <!-- SQLite: base propia del servicio de inventario, en un archivo -->
         <dependency>
