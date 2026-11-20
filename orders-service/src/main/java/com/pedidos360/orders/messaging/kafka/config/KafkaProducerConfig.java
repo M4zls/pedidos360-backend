@@ -18,6 +18,9 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 /**
  * Cliente productor de Kafka: conexion a los brokers, serializacion JSON y el
  * topico que este servicio produce ({@code orders.events}). El bean
@@ -61,7 +64,8 @@ public class KafkaProducerConfig {
         // "all": espera confirmacion de todas las replicas in-sync antes de dar
         // por publicado el mensaje (coherente con el factor de replicacion 2).
         config.put(ProducerConfig.ACKS_CONFIG, "all");
-        return new DefaultKafkaProducerFactory<>(config);
+        ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        return new DefaultKafkaProducerFactory<>(config, new StringSerializer(), new JsonSerializer<>(objectMapper));
     }
 
     @Bean
