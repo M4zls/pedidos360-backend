@@ -61,13 +61,13 @@ app:
   # app.rabbitmq de arriba): streaming de analitica/auditoria, en paralelo a
   # RabbitMQ, sin reemplazar sus colas ni su logica transaccional.
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094,localhost:9095}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094,localhost:9095,localhost:9096}
     topics:
       # Lo produce este servicio: pedido creado y cada cambio de estado.
       orders-events:
         name: orders.events
         partitions: 3
-        replication-factor: 2
+        replication-factor: 3
         retention-ms: 604800000 # 7 dias
       # Lo produce inventory-service; tiene que coincidir con su application.yml.
       inventory-events:

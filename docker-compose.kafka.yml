@@ -1,13 +1,13 @@
 # ─────────────────────────────────────────────────────────────
-#  Pedidos360 — cluster de Kafka (Zookeeper + 2 brokers)
+#  Pedidos360 — cluster de Kafka (Zookeeper + 3 brokers)
 #
 #  Se suma a la red "pedidos360-net" (la crea docker-compose.yml, hay que
 #  levantarlo primero): orders-service e inventory-service le hablan por
-#  nombre (kafka1:9092, kafka2:9092), igual que con RabbitMQ.
+#  nombre (kafka1:9092, kafka2:9092, kafka3:9092), igual que con RabbitMQ.
 #
-#  2 brokers, mismo espiritu que el cluster de 2 nodos de RabbitMQ: los
-#  topicos (orders.events, inventory.events) se crean con factor de
-#  replicacion 2, asi sobreviven a que se caiga un solo broker.
+#  3 brokers: los topicos (orders.events, inventory.events) se crean con 3
+#  particiones y factor de replicacion 3, asi cada particion tiene una copia
+#  en CADA broker y el cluster tolera que se caiga uno sin perder datos.
 #
 #  Uso:
 #    docker compose -f docker-compose.kafka.yml up -d
@@ -43,13 +43,13 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092,PLAINTEXT_HOST://localhost:9094
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      # Replication factor 2 en los topicos internos: coherente con el
-      # cluster de 2 brokers (si fuera 1, un broker caido corta todo).
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
-      KAFKA_MIN_INSYNC_REPLICAS: 1
+      # Replication factor 3 en los topicos internos: coherente con el
+      # cluster de 3 brokers (una copia en cada uno).
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
       # orders-service / inventory-service declaran sus propios topicos via
       # KafkaAdmin al arrancar; esto es solo una red de seguridad.
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
@@ -78,16 +78,47 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092,PLAINTEXT_HOST://localhost:9095
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
-      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     volumes:
       - kafka2-data:/var/lib/kafka/data
     ports:
       - "9095:9095"
+    networks:
+      - pedidos360-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  kafka3:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: kafka3
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:9092,PLAINTEXT_HOST://localhost:9096
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka3-data:/var/lib/kafka/data
+    ports:
+      - "9096:9096"
     networks:
       - pedidos360-net
     healthcheck:
@@ -108,3 +139,4 @@ volumes:
   zookeeper-log:
   kafka1-data:
   kafka2-data:
+  kafka3-data:

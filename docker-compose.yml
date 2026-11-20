@@ -61,7 +61,7 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
       RABBITMQ_HOST: rabbitmq1
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
     volumes:
       - inventory-db:/data
     ports:
@@ -81,7 +81,7 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
       RABBITMQ_HOST: rabbitmq1
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
     volumes:
       - orders-db:/data
     ports:
@@ -139,7 +139,7 @@ services:
   kafka-admin:
     build: ./kafka-admin-service
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-7b48efc0-534c-4b13-9e02-4c60a129f151}
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
     ports:
