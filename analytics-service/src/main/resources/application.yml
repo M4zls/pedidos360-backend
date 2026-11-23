@@ -1,0 +1,31 @@
+server:
+  port: ${SERVER_PORT:8086}
+
+spring:
+  application:
+    name: pedidos360-analytics
+
+app:
+  # Topologia de Kafka Streams (configuracion centralizada, mismo criterio que
+  # app.kafka en orders/inventory-service): este servicio solo CONSUME
+  # orders.events e inventory.events (los producen los otros dos) y PRODUCE
+  # order-fulfillment.events (el cruce de ambos).
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094,localhost:9095,localhost:9096}
+    topics:
+      orders-events:
+        name: orders.events
+      inventory-events:
+        name: inventory.events
+      order-fulfillment-events:
+        name: order-fulfillment.events
+        partitions: 3
+        replication-factor: 3
+        retention-ms: 604800000 # 7 dias
+    # Tiempo maximo entre "pedido creado" y "stock reservado" para considerarlos
+    # el mismo flujo (join window). Si el stock se reserva mas tarde que esto,
+    # Kafka Streams no los cruza.
+    join-window-ms: 300000 # 5 minutos
+    # Tamano de la ventana para el conteo de "pedidos creados por minuto"
+    # (agregacion que se consulta por API, ver AnalyticsQueryController).
+    orders-per-minute-window-ms: 60000

@@ -10,6 +10,7 @@
 #    /api/orders/*           ->  orders
 #    /api/admin/rabbitmq/*   ->  rabbitmq-admin
 #    /api/admin/kafka/*      ->  kafka-admin
+#    /api/analytics/*        ->  analytics (Kafka Streams, sin auth: solo demo)
 #
 #    orders  ->  inventory   (consulta el catálogo por HTTP)
 #
@@ -23,6 +24,11 @@
 #  analitica, ver docker-compose.kafka.yml). Si ese stack no esta levantado
 #  todavia, el cliente Kafka solo reintenta en segundo plano: no bloquea el
 #  arranque ni afecta el flujo transaccional de RabbitMQ.
+#
+#  analytics (Kafka Streams) consume esos dos streams, los cruza por orderId
+#  (join con ventana de tiempo) y publica el resultado en
+#  order-fulfillment.events; tambien mantiene un conteo en ventana de pedidos
+#  creados, consultable por API. Ver analytics-service/README.md.
 #
 #  Uso:
 #    docker compose up --build     # auth en http://localhost:8080
@@ -144,6 +150,14 @@ services:
       CORS_ALLOWED_ORIGIN: http://localhost:8081   # origen del front
     ports:
       - "8085:8085"
+    restart: unless-stopped
+
+  analytics:
+    build: ./analytics-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+    ports:
+      - "8086:8086"
     restart: unless-stopped
 
 networks:
